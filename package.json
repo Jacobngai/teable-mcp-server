@@ -6,6 +6,9 @@
   "type": "module",
   "main": "dist/index.js",
   "bin": "dist/main.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "start": "npm run build && node ./dist/main.js",
     "start:http": "npm run build && MCP_TRANSPORT=http node ./dist/main.js",
