@@ -122,7 +122,9 @@ async function startHttpServer() {
 				return;
 			}
 
+			console.log('Encrypting token for mcpKey:', req.params.mcpKey);
 			const encrypted = encryptToken(token);
+			console.log('Token encrypted, updating customer...');
 			const customer = await updateCustomerToken(req.params.mcpKey, encrypted);
 
 			if (!customer) {
@@ -130,10 +132,12 @@ async function startHttpServer() {
 				return;
 			}
 
+			console.log('Customer updated successfully:', customer.id);
 			res.json({ success: true, status: customer.status });
-		} catch (error) {
-			console.error('Error saving token:', error);
-			res.status(500).json({ error: 'Failed to save token' });
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('Error saving token:', errorMessage, error);
+			res.status(500).json({ error: 'Failed to save token', details: errorMessage });
 		}
 	});
 
