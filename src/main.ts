@@ -7,15 +7,21 @@ import express, { Request, Response, NextFunction } from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createTeableMcpServer } from './index.js';
 import { getCustomerByMcpKey, logUsage } from './supabase.js';
 import { decryptToken, encryptToken } from './encryption.js';
+import { randomUUID } from 'crypto';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';
 
 // Store active SSE transports
 const transports = new Map<string, SSEServerTransport>();
+
+// Store active Streamable HTTP transports (keyed by session ID)
+const httpTransports = new Map<string, StreamableHTTPServerTransport>();
+const httpServers = new Map<string, McpServer>();
 
 async function main() {
 	if (TRANSPORT === 'http') {
@@ -209,8 +215,8 @@ async function startHttpServer() {
 		}
 	});
 
-	// Legacy /mcp endpoint (direct POST for Streamable HTTP)
-	app.post('/mcp/:mcpKey/mcp', async (req: Request, res: Response) => {
+	// Streamable HTTP endpoint for MCP (supports POST, GET, DELETE)
+	app.all('/mcp/:mcpKey/mcp', async (req: Request, res: Response) => {
 		const { mcpKey } = req.params;
 
 		try {
@@ -232,19 +238,61 @@ async function startHttpServer() {
 			}
 
 			const apiKey = decryptToken(customer.encrypted_token);
-			const server = createTeableMcpServer(apiKey, customer.teable_base_url);
 
-			// Log tool usage
-			const requestBody = req.body;
-			if (requestBody?.method === 'tools/call') {
-				await logUsage(customer.id, requestBody.params?.name || 'unknown');
+			// Get or create session ID from header
+			const sessionId = req.headers['mcp-session-id'] as string || randomUUID();
+			const transportKey = `${mcpKey}:${sessionId}`;
+
+			// Handle different methods
+			if (req.method === 'POST') {
+				let transport = httpTransports.get(transportKey);
+				let server = httpServers.get(transportKey);
+
+				// Create new transport and server if needed
+				if (!transport) {
+					transport = new StreamableHTTPServerTransport({
+						sessionIdGenerator: () => sessionId,
+					});
+					httpTransports.set(transportKey, transport);
+
+					server = createTeableMcpServer(apiKey, customer.teable_base_url);
+					httpServers.set(transportKey, server);
+
+					await server.connect(transport);
+					console.log('New Streamable HTTP session:', sessionId);
+				}
+
+				// Log tool usage
+				const requestBody = req.body;
+				if (requestBody?.method === 'tools/call') {
+					await logUsage(customer.id, requestBody.params?.name || 'unknown');
+				}
+
+				await transport.handleRequest(req, res);
+			} else if (req.method === 'GET') {
+				// GET is for SSE stream in Streamable HTTP
+				const transport = httpTransports.get(transportKey);
+				if (transport) {
+					await transport.handleRequest(req, res);
+				} else {
+					res.status(400).json({ error: 'No session. Send POST first.' });
+				}
+			} else if (req.method === 'DELETE') {
+				// Clean up session
+				const transport = httpTransports.get(transportKey);
+				const server = httpServers.get(transportKey);
+				if (transport) {
+					await transport.close();
+					httpTransports.delete(transportKey);
+				}
+				if (server) {
+					await server.close();
+					httpServers.delete(transportKey);
+				}
+				res.status(200).json({ success: true });
+			} else {
+				res.status(405).json({ error: 'Method not allowed' });
 			}
-
-			// Handle the request directly
-			// For now, return method not supported - need proper streamable HTTP handling
-			res.status(501).json({
-				error: 'Use SSE transport. Connect to /mcp/' + mcpKey + '/sse',
-			});
 		} catch (error) {
 			console.error('MCP request error:', error);
 			res.status(500).json({ error: 'Request failed' });
