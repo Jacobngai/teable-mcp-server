@@ -1,11 +1,11 @@
 /**
  * Encryption utilities for Teable API tokens
- * Uses AES-256-GCM for secure encryption
+ * Uses AES-128-GCM for secure encryption (compatible with 32-char hex keys)
  */
 
 import crypto from 'crypto';
 
-const ALGORITHM = 'aes-256-gcm';
+const ALGORITHM = 'aes-128-gcm';
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
 
@@ -14,7 +14,7 @@ function getEncryptionKey(): Buffer {
 	if (!key) {
 		throw new Error('Missing ENCRYPTION_KEY environment variable');
 	}
-	// Convert hex string to buffer (32 bytes for AES-256)
+	// Convert hex string to buffer (16 bytes for AES-128)
 	return Buffer.from(key, 'hex');
 }
 
