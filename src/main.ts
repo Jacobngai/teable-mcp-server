@@ -51,8 +51,8 @@ async function startHttpServer() {
 	// CORS middleware
 	app.use((req: Request, res: Response, next: NextFunction) => {
 		res.header('Access-Control-Allow-Origin', '*');
-		res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-		res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+		res.header('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+		res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, mcp-session-id');
 		if (req.method === 'OPTIONS') {
 			res.sendStatus(200);
 			return;
@@ -60,7 +60,14 @@ async function startHttpServer() {
 		next();
 	});
 
-	app.use(express.json());
+	// Skip JSON parsing for MCP endpoints (StreamableHTTPServerTransport needs raw body)
+	app.use((req: Request, res: Response, next: NextFunction) => {
+		if (req.path.includes('/mcp/') && req.path.endsWith('/mcp')) {
+			next();
+		} else {
+			express.json()(req, res, next);
+		}
+	});
 
 	// Health check
 	app.get('/health', (req: Request, res: Response) => {
