@@ -117,6 +117,22 @@ export async function listCustomers(): Promise<TeableCustomer[]> {
 	return data as TeableCustomer[];
 }
 
+export async function getCustomersByEmail(email: string): Promise<TeableCustomer[]> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('teable_customers')
+		.select('*')
+		.eq('email', email)
+		.order('created_at', { ascending: false });
+
+	if (error) {
+		throw new Error(`Failed to get customers by email: ${error.message}`);
+	}
+
+	return (data || []) as TeableCustomer[];
+}
+
 export async function logUsage(customerId: string, toolName: string, tableId?: string): Promise<void> {
 	const client = getSupabaseClient();
 

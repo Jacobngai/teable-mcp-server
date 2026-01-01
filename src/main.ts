@@ -124,6 +124,24 @@ async function startHttpServer() {
 		}
 	});
 
+	// Get customers by email (for dashboard)
+	app.get('/api/customers/by-email/:email', async (req: Request, res: Response) => {
+		try {
+			const { getCustomersByEmail } = await import('./supabase.js');
+			const email = decodeURIComponent(req.params.email);
+			const customers = await getCustomersByEmail(email);
+			// Don't expose encrypted tokens
+			const safeCustomers = customers.map(c => {
+				const { encrypted_token, ...safe } = c;
+				return safe;
+			});
+			res.json({ customers: safeCustomers });
+		} catch (error) {
+			console.error('Error getting customers by email:', error);
+			res.status(500).json({ error: 'Failed to get customers' });
+		}
+	});
+
 	// Save customer token
 	app.post('/api/customers/:mcpKey/token', async (req: Request, res: Response) => {
 		try {
