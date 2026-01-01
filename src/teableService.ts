@@ -48,6 +48,24 @@ export class TeableService {
 		this.baseUrl = baseUrl;
 	}
 
+	// ============ SPACES & BASES ============
+
+	async listSpaces(): Promise<{ spaces: Array<{ id: string; name: string }> }> {
+		return this.fetchApi('/space');
+	}
+
+	async getSpace(spaceId: string): Promise<{ id: string; name: string }> {
+		return this.fetchApi(`/space/${spaceId}`);
+	}
+
+	async listBases(spaceId: string): Promise<{ bases: Array<{ id: string; name: string; spaceId: string }> }> {
+		return this.fetchApi(`/space/${spaceId}/base`);
+	}
+
+	async getBase(baseId: string): Promise<{ id: string; name: string; spaceId: string }> {
+		return this.fetchApi(`/base/${baseId}`);
+	}
+
 	// ============ RECORDS ============
 
 	async getRecord(

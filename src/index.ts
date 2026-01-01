@@ -4,6 +4,7 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { z } from 'zod';
 import { TeableService } from './teableService.js';
 import { toolDefinitions } from './tools.js';
 import {
@@ -37,6 +38,45 @@ export function createTeableMcpServer(apiKey: string, baseUrl?: string): McpServ
 	const teable = new TeableService(apiKey, baseUrl);
 
 	// Register tools
+
+	// ============ SPACES & BASES ============
+	server.tool(
+		'list_spaces',
+		'List all spaces/workspaces the user has access to. Use this first to discover available spaces.',
+		z.object({}).shape,
+		async () => {
+			const result = await teable.listSpaces();
+			return {
+				content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+			};
+		}
+	);
+
+	server.tool(
+		'list_bases',
+		'List all bases in a specific space. Use list_spaces first to get the spaceId.',
+		z.object({ spaceId: z.string().describe('The space ID (starts with spc...)') }).shape,
+		async (args: { spaceId: string }) => {
+			const result = await teable.listBases(args.spaceId);
+			return {
+				content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+			};
+		}
+	);
+
+	server.tool(
+		'get_base',
+		'Get details of a specific base including its tables',
+		z.object({ baseId: z.string().describe('The base ID (starts with bse...)') }).shape,
+		async (args: { baseId: string }) => {
+			const result = await teable.getBase(args.baseId);
+			return {
+				content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+			};
+		}
+	);
+
+	// ============ TABLES ============
 	server.tool(
 		'list_tables',
 		'List all tables in a Teable base/space',
