@@ -223,6 +223,64 @@ export class TeableService {
 		});
 	}
 
+	// ============ RECORD COUNTING ============
+
+	/**
+	 * Get total record count across all accessible tables
+	 * Used for enforcing record limits
+	 */
+	async getTotalRecordCount(): Promise<number> {
+		let totalCount = 0;
+
+		try {
+			// Get all spaces
+			const spacesResult = await this.listSpaces();
+			const spaces = spacesResult.spaces || [];
+
+			// For each space, get bases
+			for (const space of spaces) {
+				try {
+					const basesResult = await this.listBases(space.id);
+					const bases = basesResult.bases || [];
+
+					// For each base, get tables and count records
+					for (const base of bases) {
+						try {
+							const tables = await this.listTables(base.id);
+
+							// For each table, get record count
+							for (const table of tables) {
+								try {
+									// Use maxRecords=1 to just get the total count from response
+									const result = await this.listRecords(table.id, { maxRecords: 1 });
+									// The records array length is just 1, but we need total
+									// Teable API might return total in response, check for it
+									const records = result.records || [];
+									// For now, do a full count by listing more records
+									const fullResult = await this.listRecords(table.id, { maxRecords: 100000 });
+									totalCount += (fullResult.records || []).length;
+								} catch (e) {
+									// Skip tables we can't access
+									console.error(`Error counting records in table ${table.id}:`, e);
+								}
+							}
+						} catch (e) {
+							// Skip bases we can't access
+							console.error(`Error listing tables in base ${base.id}:`, e);
+						}
+					}
+				} catch (e) {
+					// Skip spaces we can't access
+					console.error(`Error listing bases in space ${space.id}:`, e);
+				}
+			}
+		} catch (e) {
+			console.error('Error counting total records:', e);
+		}
+
+		return totalCount;
+	}
+
 	// ============ HELPER ============
 
 	private async fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

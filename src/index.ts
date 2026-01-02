@@ -29,7 +29,35 @@ import {
 	deleteViewSchema,
 } from './tools.js';
 
-export function createTeableMcpServer(apiKey: string, baseUrl?: string): McpServer {
+// Payment links for upgrades (use environment variable to switch between test/live)
+const PAYMENT_LINK_PRO = process.env.PAYMENT_LINK_PRO || 'https://buy.stripe.com/test_00w28q0PEbItaFgciE2Nq00';
+const PAYMENT_LINK_ENTERPRISE = process.env.PAYMENT_LINK_ENTERPRISE || 'https://buy.stripe.com/test_6oUeVcdCqaEpaFg4Qc2Nq01';
+
+export interface CustomerLimits {
+	recordLimit: number;
+	tier: string;
+}
+
+function getLimitErrorMessage(currentCount: number, limit: number, tier: string): string {
+	const nextTier = tier === 'free' ? 'Pro' : 'Enterprise';
+	const nextLimit = tier === 'free' ? '250,000' : '1,000,000';
+	const upgradeLink = tier === 'free' ? PAYMENT_LINK_PRO : PAYMENT_LINK_ENTERPRISE;
+
+	if (tier === 'enterprise') {
+		return `❌ Record Limit Reached (${currentCount.toLocaleString()}/${limit.toLocaleString()})
+
+You've reached the maximum Enterprise limit. Please contact support for custom plans.`;
+	}
+
+	return `❌ Record Limit Reached (${currentCount.toLocaleString()}/${limit.toLocaleString()})
+
+You cannot add more records until you upgrade or delete existing records.
+
+Upgrade to ${nextTier} (${nextLimit} records):
+${upgradeLink}`;
+}
+
+export function createTeableMcpServer(apiKey: string, baseUrl?: string, limits?: CustomerLimits): McpServer {
 	const server = new McpServer({
 		name: 'teable-mcp-server',
 		version: '1.0.0',
@@ -158,6 +186,16 @@ export function createTeableMcpServer(apiKey: string, baseUrl?: string): McpServ
 		'Create a new record in a table',
 		createRecordSchema.shape,
 		async (args) => {
+			// Check record limit if limits are set
+			if (limits) {
+				const totalRecords = await teable.getTotalRecordCount();
+				if (totalRecords >= limits.recordLimit) {
+					return {
+						content: [{ type: 'text', text: getLimitErrorMessage(totalRecords, limits.recordLimit, limits.tier) }],
+						isError: true,
+					};
+				}
+			}
 			const record = await teable.createRecord(args.tableId, args.fields as Record<string, unknown>);
 			return {
 				content: [{ type: 'text', text: JSON.stringify(record, null, 2) }],
@@ -170,6 +208,20 @@ export function createTeableMcpServer(apiKey: string, baseUrl?: string): McpServ
 		'Create multiple records in a table',
 		createRecordsSchema.shape,
 		async (args) => {
+			// Check record limit if limits are set
+			if (limits) {
+				const totalRecords = await teable.getTotalRecordCount();
+				const newRecordsCount = args.records.length;
+				if (totalRecords + newRecordsCount > limits.recordLimit) {
+					const remaining = Math.max(0, limits.recordLimit - totalRecords);
+					return {
+						content: [{ type: 'text', text: `${getLimitErrorMessage(totalRecords, limits.recordLimit, limits.tier)}
+
+You're trying to add ${newRecordsCount} records but only have space for ${remaining}.` }],
+						isError: true,
+					};
+				}
+			}
 			const result = await teable.createRecords(
 				args.tableId,
 				args.records as { fields: Record<string, unknown> }[]

@@ -8,13 +8,31 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createTeableMcpServer } from './index.js';
-import { getCustomerByMcpKey, logUsage } from './supabase.js';
+import { createTeableMcpServer, CustomerLimits } from './index.js';
+import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId } from './supabase.js';
 import { decryptToken, encryptToken } from './encryption.js';
 import { randomUUID } from 'crypto';
+import Stripe from 'stripe';
+import { Resend } from 'resend';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';
+
+// Stripe configuration
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+	apiVersion: '2024-12-18.acacia'
+});
+const resend = new Resend(process.env.RESEND_API_KEY || '');
+
+// Stripe Price IDs (Yearly Recurring)
+const PRICE_BASE = process.env.STRIPE_PRICE_BASE || 'price_1SkpFgBYvVjM733YnXnG5Qgg';
+const PRICE_PRO = process.env.STRIPE_PRICE_PRO || 'price_1SkpGlBYvVjM733YCInhzrI4';
+const PRICE_ENTERPRISE = process.env.STRIPE_PRICE_ENTERPRISE || 'price_1SkpHBBYvVjM733YOqy1pU8n';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://www.resultmarketing.asia';
+
+// Payment Links for upgrade (direct Stripe checkout)
+const PAYMENT_LINK_PRO = 'https://buy.stripe.com/00w28q0PEbItaFgciE2Nq00';
+const PAYMENT_LINK_ENTERPRISE = 'https://buy.stripe.com/6oUeVcdCqaEpaFg4Qc2Nq01';
 
 // Store active SSE transports
 const transports = new Map<string, SSEServerTransport>();
@@ -142,6 +160,26 @@ async function startHttpServer() {
 		}
 	});
 
+	// Get customer by Stripe session ID (for post-payment redirect)
+	app.get('/api/customers/by-session/:sessionId', async (req: Request, res: Response) => {
+		try {
+			const sessionId = req.params.sessionId;
+			const customer = await getCustomerByStripeSessionId(sessionId);
+
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found', pending: true });
+				return;
+			}
+
+			// Don't expose encrypted token
+			const { encrypted_token, ...safeCustomer } = customer;
+			res.json(safeCustomer);
+		} catch (error) {
+			console.error('Error getting customer by session:', error);
+			res.status(500).json({ error: 'Failed to get customer' });
+		}
+	});
+
 	// Save customer token
 	app.post('/api/customers/:mcpKey/token', async (req: Request, res: Response) => {
 		try {
@@ -172,6 +210,207 @@ async function startHttpServer() {
 		}
 	});
 
+	// Get upgrade links and limits for a customer
+	app.get('/api/customers/:mcpKey/limits', async (req: Request, res: Response) => {
+		try {
+			const customer = await getCustomerByMcpKey(req.params.mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+			res.json({
+				record_limit: customer.record_limit,
+				tier: customer.tier,
+				upgrade_links: {
+					pro: PAYMENT_LINK_PRO,
+					enterprise: PAYMENT_LINK_ENTERPRISE
+				}
+			});
+		} catch (error) {
+			console.error('Error getting customer limits:', error);
+			res.status(500).json({ error: 'Failed to get customer limits' });
+		}
+	});
+
+	// Mark onboarding complete
+	app.post('/api/customers/onboarding-complete', async (req: Request, res: Response) => {
+		try {
+			const { markOnboardingComplete } = await import('./supabase.js');
+			const { email } = req.body;
+
+			if (!email) {
+				res.status(400).json({ error: 'Email is required' });
+				return;
+			}
+
+			await markOnboardingComplete(email);
+			res.json({ success: true });
+		} catch (error) {
+			console.error('Error marking onboarding complete:', error);
+			res.status(500).json({ error: 'Failed to mark onboarding complete' });
+		}
+	});
+
+	// ============ STRIPE ENDPOINTS ============
+
+	// Create Stripe Checkout Session
+	app.post('/api/checkout', async (req: Request, res: Response) => {
+		try {
+			const { email, name } = req.body;
+
+			if (!email || !name) {
+				res.status(400).json({ error: 'Email and name are required' });
+				return;
+			}
+
+			const session = await stripe.checkout.sessions.create({
+				payment_method_types: ['card'],
+				customer_email: email,
+				line_items: [{
+					price: PRICE_BASE,
+					quantity: 1,
+				}],
+				mode: 'subscription',
+				success_url: `${FRONTEND_URL}/app-login.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+				cancel_url: `${FRONTEND_URL}/teable-checkout.html?cancelled=1`,
+				metadata: { name, email, type: 'base' }
+			});
+
+			res.json({ url: session.url, sessionId: session.id });
+		} catch (error) {
+			console.error('Checkout error:', error);
+			res.status(500).json({ error: 'Failed to create checkout session' });
+		}
+	});
+
+	// Create Stripe Checkout for Upgrade
+	app.post('/api/checkout/upgrade', async (req: Request, res: Response) => {
+		try {
+			const { email, tier } = req.body;
+
+			if (!email || !tier) {
+				res.status(400).json({ error: 'Email and tier are required' });
+				return;
+			}
+
+			const priceId = tier === 'pro' ? PRICE_PRO : PRICE_ENTERPRISE;
+			const recordLimit = tier === 'pro' ? 250000 : 1000000;
+
+			const session = await stripe.checkout.sessions.create({
+				payment_method_types: ['card'],
+				customer_email: email,
+				line_items: [{
+					price: priceId,
+					quantity: 1,
+				}],
+				mode: 'subscription',
+				success_url: `${FRONTEND_URL}/app-dashboard.html?upgrade=success&tier=${tier}`,
+				cancel_url: `${FRONTEND_URL}/upsell.html?cancelled=1`,
+				metadata: { email, tier, type: 'upgrade', recordLimit: recordLimit.toString() }
+			});
+
+			res.json({ url: session.url, sessionId: session.id });
+		} catch (error) {
+			console.error('Upgrade checkout error:', error);
+			res.status(500).json({ error: 'Failed to create upgrade checkout' });
+		}
+	});
+
+	// Stripe Webhook Handler
+	app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+		const sig = req.headers['stripe-signature'] as string;
+		const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
+		let event: Stripe.Event;
+
+		try {
+			event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+		} catch (err) {
+			console.error('Webhook signature verification failed:', err);
+			res.status(400).json({ error: 'Webhook signature verification failed' });
+			return;
+		}
+
+		console.log('Stripe webhook event:', event.type);
+
+		if (event.type === 'checkout.session.completed') {
+			const session = event.data.object as Stripe.Checkout.Session;
+			const { name, email, type, tier, recordLimit } = session.metadata || {};
+
+			if (type === 'base' && email && name) {
+				// New customer - create accounts
+				try {
+					// Create customer in teable_customers
+					const teableCustomer = await createCustomerWithStripe(
+						name,
+						email,
+						session.customer as string || '',
+						session.id,
+						'free',
+						5000
+					);
+
+					// Also create in Airtable customers table
+					const { createAirtableCustomer } = await import('./supabase.js');
+					await createAirtableCustomer(name, email, session.customer as string || '', session.id);
+
+					// Send welcome email
+					await resend.emails.send({
+						from: 'Result Marketing <noreply@resultmarketing.asia>',
+						to: email,
+						subject: 'Welcome to Result Marketing - Your AI Connector is Ready!',
+						html: `
+							<h1>Welcome, ${name}!</h1>
+							<p>Thank you for your purchase! Your AI Connector account is now active.</p>
+							<h2>Next Steps:</h2>
+							<ol>
+								<li>Log in to your dashboard: <a href="${FRONTEND_URL}/app-login.html">Login Here</a></li>
+								<li>Follow the setup wizard to connect your Teable database</li>
+								<li>Start using AI with your data!</li>
+							</ol>
+							<p>Your login email: <strong>${email}</strong></p>
+							<p>If you haven't set a password yet, use the "Forgot Password" link to create one.</p>
+							<hr>
+							<p>Need help? Reply to this email or contact support.</p>
+							<p>- The Result Marketing Team</p>
+						`
+					});
+
+					console.log('New customer created:', email);
+				} catch (error) {
+					console.error('Failed to create customer:', error);
+				}
+			} else if (type === 'upgrade' && email && tier) {
+				// Existing customer upgrade
+				try {
+					const limit = parseInt(recordLimit || '250000', 10);
+					await updateCustomerTier(email, tier, limit);
+
+					// Send upgrade confirmation email
+					await resend.emails.send({
+						from: 'Result Marketing <noreply@resultmarketing.asia>',
+						to: email,
+						subject: `Upgrade Confirmed - ${tier === 'pro' ? '250,000' : '1,000,000'} Records!`,
+						html: `
+							<h1>Upgrade Successful!</h1>
+							<p>Your Teable storage has been upgraded to <strong>${limit.toLocaleString()} records</strong>.</p>
+							<p>Your new plan: <strong>${tier === 'pro' ? 'Pro' : 'Enterprise'}</strong></p>
+							<p>Enjoy your expanded storage!</p>
+							<hr>
+							<p>- The Result Marketing Team</p>
+						`
+					});
+
+					console.log('Customer upgraded:', email, tier);
+				} catch (error) {
+					console.error('Failed to upgrade customer:', error);
+				}
+			}
+		}
+
+		res.json({ received: true });
+	});
+
 	// ============ MCP ENDPOINTS ============
 
 	// SSE endpoint for MCP connections
@@ -200,8 +439,14 @@ async function startHttpServer() {
 			// Decrypt the API key
 			const apiKey = decryptToken(customer.encrypted_token);
 
+			// Create limits object for this customer
+			const limits: CustomerLimits = {
+				recordLimit: customer.record_limit || 5000,
+				tier: customer.tier || 'free'
+			};
+
 			// Create MCP server for this customer
-			const server = createTeableMcpServer(apiKey, customer.teable_base_url);
+			const server = createTeableMcpServer(apiKey, customer.teable_base_url, limits);
 
 			// Create SSE transport
 			const transport = new SSEServerTransport('/mcp/' + mcpKey + '/messages', res);
@@ -264,6 +509,12 @@ async function startHttpServer() {
 
 			const apiKey = decryptToken(customer.encrypted_token);
 
+			// Create limits object for this customer
+			const limits: CustomerLimits = {
+				recordLimit: customer.record_limit || 5000,
+				tier: customer.tier || 'free'
+			};
+
 			// Get or create session ID from header
 			const sessionId = req.headers['mcp-session-id'] as string || randomUUID();
 			const transportKey = `${mcpKey}:${sessionId}`;
@@ -280,7 +531,7 @@ async function startHttpServer() {
 					});
 					httpTransports.set(transportKey, transport);
 
-					server = createTeableMcpServer(apiKey, customer.teable_base_url);
+					server = createTeableMcpServer(apiKey, customer.teable_base_url, limits);
 					httpServers.set(transportKey, server);
 
 					await server.connect(transport);
