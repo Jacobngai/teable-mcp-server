@@ -19,11 +19,29 @@ import { Resend } from 'resend';
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';
 
-// Stripe configuration
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-	apiVersion: '2025-02-24.acacia'
-});
-const resend = new Resend(process.env.RESEND_API_KEY || '');
+// Stripe configuration - lazy initialization to avoid crash when key not set
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+	if (!stripeInstance) {
+		const key = process.env.STRIPE_SECRET_KEY;
+		if (!key) {
+			throw new Error('STRIPE_SECRET_KEY environment variable is required');
+		}
+		stripeInstance = new Stripe(key, {
+			apiVersion: '2025-02-24.acacia'
+		});
+	}
+	return stripeInstance;
+}
+
+// Resend configuration - lazy initialization
+let resendInstance: Resend | null = null;
+function getResend(): Resend {
+	if (!resendInstance) {
+		resendInstance = new Resend(process.env.RESEND_API_KEY || '');
+	}
+	return resendInstance;
+}
 
 // Stripe Price IDs (Yearly Recurring)
 const PRICE_BASE = process.env.STRIPE_PRICE_BASE || 'price_1SkpFgBYvVjM733YnXnG5Qgg';
@@ -264,7 +282,7 @@ async function startHttpServer() {
 				return;
 			}
 
-			const session = await stripe.checkout.sessions.create({
+			const session = await getStripe().checkout.sessions.create({
 				payment_method_types: ['card'],
 				customer_email: email,
 				line_items: [{
@@ -297,7 +315,7 @@ async function startHttpServer() {
 			const priceId = tier === 'pro' ? PRICE_PRO : PRICE_ENTERPRISE;
 			const recordLimit = tier === 'pro' ? 250000 : 1000000;
 
-			const session = await stripe.checkout.sessions.create({
+			const session = await getStripe().checkout.sessions.create({
 				payment_method_types: ['card'],
 				customer_email: email,
 				line_items: [{
@@ -325,7 +343,7 @@ async function startHttpServer() {
 		let event: Stripe.Event;
 
 		try {
-			event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+			event = getStripe().webhooks.constructEvent(req.body, sig, webhookSecret);
 		} catch (err) {
 			console.error('Webhook signature verification failed:', err);
 			res.status(400).json({ error: 'Webhook signature verification failed' });
@@ -356,7 +374,7 @@ async function startHttpServer() {
 					await createAirtableCustomer(name, email, session.customer as string || '', session.id);
 
 					// Send welcome email
-					await resend.emails.send({
+					await getResend().emails.send({
 						from: 'Result Marketing <noreply@resultmarketing.asia>',
 						to: email,
 						subject: 'Welcome to Result Marketing - Your AI Connector is Ready!',
@@ -388,7 +406,7 @@ async function startHttpServer() {
 					await updateCustomerTier(email, tier, limit);
 
 					// Send upgrade confirmation email
-					await resend.emails.send({
+					await getResend().emails.send({
 						from: 'Result Marketing <noreply@resultmarketing.asia>',
 						to: email,
 						subject: `Upgrade Confirmed - ${tier === 'pro' ? '250,000' : '1,000,000'} Records!`,
