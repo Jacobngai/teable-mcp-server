@@ -469,13 +469,18 @@ async function startHttpServer() {
 			const session = event.data.object as Stripe.Checkout.Session;
 			const { name, email, type, tier, recordLimit } = session.metadata || {};
 
-			if (type === 'base' && email && name) {
+			// Get customer details from session (for Payment Links)
+			const customerEmail = email || session.customer_details?.email || '';
+			const customerName = name || session.customer_details?.name || customerEmail.split('@')[0] || 'Customer';
+
+			// Handle new customer from Checkout Session with metadata OR from Payment Link
+			if ((type === 'base' && customerEmail) || (!type && customerEmail && session.mode === 'subscription')) {
 				// New customer - create accounts
 				try {
 					// Create customer in teable_customers
 					const teableCustomer = await createCustomerWithStripe(
-						name,
-						email,
+						customerName,
+						customerEmail,
 						session.customer as string || '',
 						session.id,
 						'free',
@@ -484,39 +489,38 @@ async function startHttpServer() {
 
 					// Also create in Airtable customers table
 					const { createAirtableCustomer } = await import('./supabase.js');
-					await createAirtableCustomer(name, email, session.customer as string || '', session.id);
+					await createAirtableCustomer(customerName, customerEmail, session.customer as string || '', session.id);
 
 					// Send welcome email
 					await getResend().emails.send({
 						from: 'Result Marketing <noreply@resultmarketing.asia>',
-						to: email,
+						to: customerEmail,
 						subject: 'Welcome to Result Marketing - Your AI Connector is Ready!',
 						html: `
-							<h1>Welcome, ${name}!</h1>
+							<h1>Welcome, ${customerName}!</h1>
 							<p>Thank you for your purchase! Your AI Connector account is now active.</p>
 							<h2>Next Steps:</h2>
 							<ol>
-								<li>Log in to your dashboard: <a href="${FRONTEND_URL}/app-login.html">Login Here</a></li>
-								<li>Follow the setup wizard to connect your Teable database</li>
+								<li>Complete setup: <a href="${FRONTEND_URL}/payment-success.html?session_id=${session.id}">Continue Setup</a></li>
+								<li>Connect your Teable database</li>
 								<li>Start using AI with your data!</li>
 							</ol>
-							<p>Your login email: <strong>${email}</strong></p>
-							<p>If you haven't set a password yet, use the "Forgot Password" link to create one.</p>
+							<p>Your login email: <strong>${customerEmail}</strong></p>
 							<hr>
 							<p>Need help? Reply to this email or contact support.</p>
 							<p>- The Result Marketing Team</p>
 						`
 					});
 
-					console.log('New customer created:', email);
+					console.log('New customer created:', customerEmail);
 				} catch (error) {
 					console.error('Failed to create customer:', error);
 				}
-			} else if (type === 'upgrade' && email && tier) {
+			} else if (type === 'upgrade' && customerEmail && tier) {
 				// Existing customer upgrade
 				try {
 					const limit = parseInt(recordLimit || '250000', 10);
-					await updateCustomerTier(email, tier, limit);
+					await updateCustomerTier(customerEmail, tier, limit);
 
 					// Send upgrade confirmation email
 					await getResend().emails.send({
