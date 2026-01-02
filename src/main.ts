@@ -1,6 +1,7 @@
 /**
  * Teable MCP Server - Multi-tenant Entry Point
  * Supports both stdio and HTTP/SSE transports
+ * Last deploy: 2026-01-03
  */
 
 import express, { Request, Response, NextFunction } from 'express';
