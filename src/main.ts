@@ -12,9 +12,21 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createTeableMcpServer, CustomerLimits } from './index.js';
 import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId } from './supabase.js';
 import { decryptToken, encryptToken } from './encryption.js';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
+
+// Generate secure random password
+function generateSecurePassword(): string {
+	const chars = 'abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%';
+	const bytes = randomBytes(16);
+	let password = '';
+	for (let i = 0; i < 16; i++) {
+		password += chars[bytes[i] % chars.length];
+	}
+	// Ensure at least one uppercase, one lowercase, one digit, one special
+	return password.charAt(0).toUpperCase() + password.slice(1, 14) + '1!';
+}
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';
@@ -203,7 +215,7 @@ async function startHttpServer() {
 	app.post('/api/customers/:mcpKey/token', async (req: Request, res: Response) => {
 		try {
 			const { updateCustomerToken } = await import('./supabase.js');
-			const { token } = req.body;
+			const { token, baseUrl } = req.body;
 
 			if (!token) {
 				res.status(400).json({ error: 'Token is required' });
@@ -213,7 +225,8 @@ async function startHttpServer() {
 			console.log('Encrypting token for mcpKey:', req.params.mcpKey);
 			const encrypted = encryptToken(token);
 			console.log('Token encrypted, updating customer...');
-			const customer = await updateCustomerToken(req.params.mcpKey, encrypted);
+			const teableBaseUrl = baseUrl || 'https://app.teable.io';
+			const customer = await updateCustomerToken(req.params.mcpKey, encrypted, teableBaseUrl);
 
 			if (!customer) {
 				res.status(404).json({ error: 'Customer not found' });
@@ -226,6 +239,106 @@ async function startHttpServer() {
 			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 			console.error('Error saving token:', errorMessage, error);
 			res.status(500).json({ error: 'Failed to save token', details: errorMessage });
+		}
+	});
+
+	// Auto-provision Teable account on table.resultmarketing.asia
+	app.post('/api/provision-teable', async (req: Request, res: Response) => {
+		const TEABLE_RM_URL = 'https://table.resultmarketing.asia';
+
+		try {
+			const { mcpKey, email, name } = req.body;
+
+			if (!mcpKey || !email) {
+				res.status(400).json({ error: 'mcpKey and email are required' });
+				return;
+			}
+
+			// Generate a secure random password
+			const password = generateSecurePassword();
+
+			console.log('Creating Teable account for:', email);
+
+			// Step 1: Create account on Teable
+			const signupResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signup`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					email,
+					password,
+					defaultSpaceName: name ? `${name}'s Workspace` : 'My Workspace'
+				})
+			});
+
+			if (!signupResponse.ok) {
+				const errData = await signupResponse.json().catch(() => ({}));
+				console.error('Teable signup failed:', errData);
+				throw new Error(errData.message || 'Failed to create Teable account');
+			}
+
+			// Get the auth session cookie from signup response
+			const setCookieHeader = signupResponse.headers.get('set-cookie');
+			const sessionCookie = setCookieHeader?.match(/auth_session=([^;]+)/)?.[0];
+
+			if (!sessionCookie) {
+				throw new Error('Failed to get session after signup');
+			}
+
+			console.log('Account created, generating access token...');
+
+			// Step 2: Create access token
+			const tokenResponse = await fetch(`${TEABLE_RM_URL}/api/access-token`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Cookie': sessionCookie
+				},
+				body: JSON.stringify({
+					name: 'AI Connector',
+					description: 'Auto-generated for Result Marketing AI Connector',
+					scopes: [
+						'table|read', 'table|create', 'table|update', 'table|delete',
+						'record|read', 'record|create', 'record|update', 'record|delete',
+						'view|read', 'view|create', 'view|update', 'view|delete',
+						'field|read', 'field|create', 'field|update', 'field|delete',
+						'base|read', 'base|create', 'base|update', 'base|delete',
+						'space|read', 'space|create', 'space|update', 'space|delete'
+					],
+					hasFullAccess: true,
+					expiredTime: '2028-01-01' // 2+ years from now
+				})
+			});
+
+			if (!tokenResponse.ok) {
+				const errData = await tokenResponse.json().catch(() => ({}));
+				console.error('Token creation failed:', errData);
+				throw new Error(errData.message || 'Failed to create access token');
+			}
+
+			const tokenData = await tokenResponse.json();
+			const accessToken = tokenData.token;
+
+			console.log('Access token created, saving to database...');
+
+			// Step 3: Save encrypted token to our database
+			const { updateCustomerToken } = await import('./supabase.js');
+			const encrypted = encryptToken(accessToken);
+			await updateCustomerToken(mcpKey, encrypted, TEABLE_RM_URL);
+
+			console.log('Teable provisioning complete for:', email);
+
+			// Return credentials (password shown once, token is stored encrypted)
+			res.json({
+				success: true,
+				email,
+				password,
+				teableUrl: TEABLE_RM_URL
+			});
+
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('Provision error:', errorMessage, error);
+			res.status(500).json({ error: errorMessage });
 		}
 	});
 

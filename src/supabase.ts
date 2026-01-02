@@ -87,16 +87,23 @@ export async function createCustomer(name: string, email: string): Promise<Teabl
 
 export async function updateCustomerToken(
 	mcpKey: string,
-	encryptedToken: string
+	encryptedToken: string,
+	teableBaseUrl?: string
 ): Promise<TeableCustomer | null> {
 	const client = getSupabaseClient();
 
+	const updateData: Record<string, unknown> = {
+		encrypted_token: encryptedToken,
+		status: 'active',
+	};
+
+	if (teableBaseUrl) {
+		updateData.teable_base_url = teableBaseUrl;
+	}
+
 	const { data, error } = await client
 		.from('teable_customers')
-		.update({
-			encrypted_token: encryptedToken,
-			status: 'active',
-		})
+		.update(updateData)
 		.eq('mcp_key', mcpKey)
 		.select()
 		.single();
