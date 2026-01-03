@@ -318,16 +318,29 @@ async function startHttpServer() {
 	// Create customer
 	app.post('/api/customers', async (req: Request, res: Response) => {
 		try {
-			const { createCustomer } = await import('./supabase.js');
-			const { name, email } = req.body;
+			const { name, email, stripeSessionId, stripeCustomerId, tier } = req.body;
 
 			if (!name || !email) {
 				res.status(400).json({ error: 'Name and email are required' });
 				return;
 			}
 
-			const customer = await createCustomer(name, email);
-			res.json(customer);
+			// Use createCustomerWithStripe if session ID provided, otherwise basic create
+			if (stripeSessionId) {
+				const customer = await createCustomerWithStripe(
+					name,
+					email,
+					stripeCustomerId || null,
+					stripeSessionId,
+					tier || 'base',
+					5000
+				);
+				res.json(customer);
+			} else {
+				const { createCustomer } = await import('./supabase.js');
+				const customer = await createCustomer(name, email);
+				res.json(customer);
+			}
 		} catch (error) {
 			console.error('Error creating customer:', error);
 			res.status(500).json({ error: 'Failed to create customer' });
