@@ -28,6 +28,196 @@ function generateSecurePassword(): string {
 	return password.charAt(0).toUpperCase() + password.slice(1, 14) + '1!';
 }
 
+// Create CRM template tables in a Teable space
+async function createCrmTemplate(teableUrl: string, accessToken: string, spaceId: string): Promise<void> {
+	const headers = {
+		'Content-Type': 'application/json',
+		'Authorization': `Bearer ${accessToken}`
+	};
+
+	console.log('Creating CRM template tables in space:', spaceId);
+
+	// Step 1: Create a Base (database) in the space
+	const baseResponse = await fetch(`${teableUrl}/api/base`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({
+			spaceId,
+			name: 'My CRM'
+		})
+	});
+
+	if (!baseResponse.ok) {
+		const err = await baseResponse.text();
+		console.error('Failed to create base:', err);
+		throw new Error('Failed to create CRM base');
+	}
+
+	const baseData = await baseResponse.json();
+	const baseId = baseData.id;
+	console.log('Created base:', baseId);
+
+	// Step 2: Create Clients table
+	const clientsTableResponse = await fetch(`${teableUrl}/api/table`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({
+			baseId,
+			name: 'Clients',
+			fields: [
+				{ name: 'Name', type: 'singleLineText', options: {} },
+				{ name: 'Phone', type: 'singleLineText', options: {} },
+				{ name: 'Email', type: 'singleLineText', options: {} },
+				{ name: 'Company', type: 'singleLineText', options: {} },
+				{ name: 'Birthday', type: 'date', options: { formatting: { date: 'YYYY-MM-DD' } } },
+				{ name: 'Spouse', type: 'singleLineText', options: {} },
+				{ name: 'Kids', type: 'number', options: { precision: 0 } },
+				{
+					name: 'Status',
+					type: 'singleSelect',
+					options: {
+						choices: [
+							{ name: 'Lead', color: 'grayBright' },
+							{ name: 'Prospect', color: 'yellowBright' },
+							{ name: 'Customer', color: 'greenBright' },
+							{ name: 'VIP', color: 'purpleBright' }
+						]
+					}
+				},
+				{
+					name: 'Interests',
+					type: 'multipleSelect',
+					options: {
+						choices: [
+							{ name: 'Medical Card', color: 'blueBright' },
+							{ name: 'Life Insurance', color: 'greenBright' },
+							{ name: 'Investment', color: 'yellowBright' },
+							{ name: 'Education Plan', color: 'purpleBright' },
+							{ name: 'Motor', color: 'grayBright' },
+							{ name: 'Home Loan', color: 'redBright' },
+							{ name: 'Personal Loan', color: 'orangeBright' }
+						]
+					}
+				},
+				{ name: 'Notes', type: 'longText', options: {} },
+				{ name: 'Last Contact', type: 'date', options: { formatting: { date: 'YYYY-MM-DD' } } },
+				{ name: 'Namecard', type: 'attachment', options: {} }
+			]
+		})
+	});
+
+	if (!clientsTableResponse.ok) {
+		const err = await clientsTableResponse.text();
+		console.error('Failed to create Clients table:', err);
+		throw new Error('Failed to create Clients table');
+	}
+
+	const clientsTable = await clientsTableResponse.json();
+	console.log('Created Clients table:', clientsTable.id);
+
+	// Step 3: Create Activities table
+	const activitiesTableResponse = await fetch(`${teableUrl}/api/table`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({
+			baseId,
+			name: 'Activities',
+			fields: [
+				{ name: 'Date', type: 'date', options: { formatting: { date: 'YYYY-MM-DD' } } },
+				{
+					name: 'Type',
+					type: 'singleSelect',
+					options: {
+						choices: [
+							{ name: 'Meeting', color: 'blueBright' },
+							{ name: 'Call', color: 'greenBright' },
+							{ name: 'Follow-up', color: 'yellowBright' },
+							{ name: 'Proposal', color: 'purpleBright' },
+							{ name: 'Closing', color: 'redBright' }
+						]
+					}
+				},
+				{ name: 'Client Name', type: 'singleLineText', options: {} },
+				{ name: 'Notes', type: 'longText', options: {} },
+				{
+					name: 'Result',
+					type: 'singleSelect',
+					options: {
+						choices: [
+							{ name: 'Successful', color: 'greenBright' },
+							{ name: 'Pending', color: 'yellowBright' },
+							{ name: 'Rejected', color: 'redBright' }
+						]
+					}
+				}
+			]
+		})
+	});
+
+	if (!activitiesTableResponse.ok) {
+		const err = await activitiesTableResponse.text();
+		console.error('Failed to create Activities table:', err);
+		// Don't throw - continue with what we have
+	} else {
+		const activitiesTable = await activitiesTableResponse.json();
+		console.log('Created Activities table:', activitiesTable.id);
+	}
+
+	// Step 4: Create Deals/Policies table
+	const dealsTableResponse = await fetch(`${teableUrl}/api/table`, {
+		method: 'POST',
+		headers,
+		body: JSON.stringify({
+			baseId,
+			name: 'Deals',
+			fields: [
+				{ name: 'Client Name', type: 'singleLineText', options: {} },
+				{
+					name: 'Product',
+					type: 'singleSelect',
+					options: {
+						choices: [
+							{ name: 'Medical Card', color: 'blueBright' },
+							{ name: 'Life Insurance', color: 'greenBright' },
+							{ name: 'Investment', color: 'yellowBright' },
+							{ name: 'Home Loan', color: 'purpleBright' },
+							{ name: 'Personal Loan', color: 'orangeBright' },
+							{ name: 'Motor', color: 'grayBright' }
+						]
+					}
+				},
+				{ name: 'Amount', type: 'number', options: { precision: 2, symbol: 'RM' } },
+				{ name: 'Date', type: 'date', options: { formatting: { date: 'YYYY-MM-DD' } } },
+				{
+					name: 'Status',
+					type: 'singleSelect',
+					options: {
+						choices: [
+							{ name: 'Pending', color: 'yellowBright' },
+							{ name: 'Approved', color: 'greenBright' },
+							{ name: 'Rejected', color: 'redBright' },
+							{ name: 'Closed', color: 'blueBright' }
+						]
+					}
+				},
+				{ name: 'Bank/Provider', type: 'singleLineText', options: {} },
+				{ name: 'Interest Rate', type: 'number', options: { precision: 2 } },
+				{ name: 'Notes', type: 'longText', options: {} }
+			]
+		})
+	});
+
+	if (!dealsTableResponse.ok) {
+		const err = await dealsTableResponse.text();
+		console.error('Failed to create Deals table:', err);
+	} else {
+		const dealsTable = await dealsTableResponse.json();
+		console.log('Created Deals table:', dealsTable.id);
+	}
+
+	console.log('CRM template creation complete');
+}
+
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const TRANSPORT = process.env.MCP_TRANSPORT || 'stdio';
 
@@ -318,9 +508,30 @@ async function startHttpServer() {
 			const tokenData = await tokenResponse.json();
 			const accessToken = tokenData.token;
 
-			console.log('Access token created, saving to database...');
+			console.log('Access token created, creating CRM template...');
 
-			// Step 3: Save encrypted token to our database
+			// Step 3: Get the user's default space and create CRM template
+			try {
+				const spacesResponse = await fetch(`${TEABLE_RM_URL}/api/space`, {
+					headers: { 'Authorization': `Bearer ${accessToken}` }
+				});
+
+				if (spacesResponse.ok) {
+					const spaces = await spacesResponse.json();
+					if (spaces && spaces.length > 0) {
+						const defaultSpaceId = spaces[0].id;
+						console.log('Found default space:', defaultSpaceId);
+						await createCrmTemplate(TEABLE_RM_URL, accessToken, defaultSpaceId);
+					}
+				}
+			} catch (templateError) {
+				console.error('CRM template creation failed (non-critical):', templateError);
+				// Continue anyway - user can still use the account
+			}
+
+			console.log('Saving token to database...');
+
+			// Step 4: Save encrypted token to our database
 			const { updateCustomerToken } = await import('./supabase.js');
 			const encrypted = encryptToken(accessToken);
 			await updateCustomerToken(mcpKey, encrypted, TEABLE_RM_URL);
