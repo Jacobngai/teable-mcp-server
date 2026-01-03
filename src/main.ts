@@ -945,9 +945,10 @@ async function startHttpServer() {
 			}));
 
 			res.json({ payments });
-		} catch (error) {
-			console.error('Failed to list Stripe payments:', error);
-			res.status(500).json({ error: 'Failed to fetch payments' });
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('Failed to list Stripe payments:', errorMessage);
+			res.status(500).json({ error: 'Failed to fetch payments', details: errorMessage });
 		}
 	});
 
@@ -979,9 +980,10 @@ async function startHttpServer() {
 			}
 
 			res.json({ orphaned, count: orphaned.length });
-		} catch (error) {
-			console.error('Failed to get orphaned payments:', error);
-			res.status(500).json({ error: 'Failed to fetch orphaned payments' });
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('Failed to get orphaned payments:', errorMessage);
+			res.status(500).json({ error: 'Failed to fetch orphaned payments', details: errorMessage });
 		}
 	});
 
