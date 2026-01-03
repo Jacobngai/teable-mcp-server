@@ -159,7 +159,7 @@ export async function logUsage(customerId: string, toolName: string, tableId?: s
 export async function createCustomerWithStripe(
 	name: string,
 	email: string,
-	stripeCustomerId: string,
+	stripeCustomerId: string | null,
 	stripeSessionId: string,
 	tier: string = 'free',
 	recordLimit: number = 5000
