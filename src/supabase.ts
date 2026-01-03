@@ -181,7 +181,6 @@ export async function createCustomerWithStripe(
 		.insert({
 			name,
 			email,
-			stripe_customer_id: stripeCustomerId,
 			stripe_session_id: stripeSessionId,
 			tier,
 			record_limit: recordLimit,

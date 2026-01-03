@@ -1035,9 +1035,10 @@ async function startHttpServer() {
 
 			const { encrypted_token, ...safeCustomer } = newCustomer;
 			res.json({ customer: safeCustomer, message: 'Customer created successfully' });
-		} catch (error) {
-			console.error('Failed to provision customer:', error);
-			res.status(500).json({ error: 'Failed to provision customer' });
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('Failed to provision customer:', errorMessage);
+			res.status(500).json({ error: 'Failed to provision customer', details: errorMessage });
 		}
 	});
 
