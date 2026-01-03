@@ -10,7 +10,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createTeableMcpServer, CustomerLimits } from './index.js';
-import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId } from './supabase.js';
+import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId, getAdminByEmail, getAllCustomers, getCustomerById, AdminUser } from './supabase.js';
+import { createClient } from '@supabase/supabase-js';
 import { decryptToken, encryptToken } from './encryption.js';
 import { randomUUID, randomBytes } from 'crypto';
 import Stripe from 'stripe';
@@ -830,6 +831,251 @@ async function startHttpServer() {
 		}
 
 		res.json({ received: true });
+	});
+
+	// ============ ADMIN DASHBOARD API ============
+
+	// Admin authentication middleware
+	interface AdminRequest extends Request {
+		adminUser?: AdminUser;
+	}
+
+	async function requireAdmin(req: AdminRequest, res: Response, next: NextFunction): Promise<void> {
+		const authHeader = req.headers.authorization;
+		if (!authHeader?.startsWith('Bearer ')) {
+			res.status(401).json({ error: 'No token provided' });
+			return;
+		}
+
+		const token = authHeader.substring(7);
+
+		try {
+			// Create Supabase client with anon key to verify the token
+			const supabaseUrl = process.env.SUPABASE_URL;
+			const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+			if (!supabaseUrl || !supabaseAnonKey) {
+				res.status(500).json({ error: 'Server configuration error' });
+				return;
+			}
+
+			const supabase = createClient(supabaseUrl, supabaseAnonKey);
+			const { data: { user }, error } = await supabase.auth.getUser(token);
+
+			if (error || !user) {
+				res.status(401).json({ error: 'Invalid token' });
+				return;
+			}
+
+			// Check if user is admin
+			const adminUser = await getAdminByEmail(user.email || '');
+			if (!adminUser) {
+				res.status(403).json({ error: 'Not authorized as admin' });
+				return;
+			}
+
+			req.adminUser = adminUser;
+			next();
+		} catch (error) {
+			console.error('Admin auth error:', error);
+			res.status(401).json({ error: 'Authentication failed' });
+		}
+	}
+
+	// Get admin profile
+	app.get('/api/admin/me', requireAdmin, async (req: AdminRequest, res: Response) => {
+		res.json(req.adminUser);
+	});
+
+	// List all customers (with pagination)
+	app.get('/api/admin/customers', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const page = parseInt(req.query.page as string) || 1;
+			const limit = parseInt(req.query.limit as string) || 50;
+			const status = req.query.status as string | undefined;
+			const search = req.query.search as string | undefined;
+
+			const result = await getAllCustomers(page, limit, status, search);
+			res.json(result);
+		} catch (error) {
+			console.error('Failed to list customers:', error);
+			res.status(500).json({ error: 'Failed to fetch customers' });
+		}
+	});
+
+	// Get customer details
+	app.get('/api/admin/customers/:id', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const customer = await getCustomerById(req.params.id);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+			// Remove encrypted token from response
+			const { encrypted_token, ...safeCustomer } = customer;
+			res.json(safeCustomer);
+		} catch (error) {
+			console.error('Failed to get customer:', error);
+			res.status(500).json({ error: 'Failed to fetch customer' });
+		}
+	});
+
+	// List recent Stripe payments
+	app.get('/api/admin/stripe/payments', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const stripe = getStripe();
+			const limit = parseInt(req.query.limit as string) || 50;
+
+			const sessions = await stripe.checkout.sessions.list({
+				limit,
+				expand: ['data.customer']
+			});
+
+			// Map to simpler format
+			const payments = sessions.data.map(session => ({
+				id: session.id,
+				customer_email: session.customer_details?.email || session.customer_email,
+				customer_name: session.customer_details?.name,
+				amount_total: session.amount_total,
+				currency: session.currency,
+				payment_status: session.payment_status,
+				status: session.status,
+				created: new Date(session.created * 1000).toISOString(),
+				metadata: session.metadata
+			}));
+
+			res.json({ payments });
+		} catch (error) {
+			console.error('Failed to list Stripe payments:', error);
+			res.status(500).json({ error: 'Failed to fetch payments' });
+		}
+	});
+
+	// Get orphaned payments (paid but no customer record)
+	app.get('/api/admin/stripe/orphaned', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const stripe = getStripe();
+			const sessions = await stripe.checkout.sessions.list({
+				limit: 100,
+				status: 'complete'
+			});
+
+			// Cross-reference with database
+			const orphaned = [];
+			for (const session of sessions.data) {
+				if (session.payment_status === 'paid') {
+					const customer = await getCustomerByStripeSessionId(session.id);
+					if (!customer) {
+						orphaned.push({
+							id: session.id,
+							customer_email: session.customer_details?.email || session.customer_email,
+							customer_name: session.customer_details?.name,
+							amount_total: session.amount_total,
+							currency: session.currency,
+							created: new Date(session.created * 1000).toISOString()
+						});
+					}
+				}
+			}
+
+			res.json({ orphaned, count: orphaned.length });
+		} catch (error) {
+			console.error('Failed to get orphaned payments:', error);
+			res.status(500).json({ error: 'Failed to fetch orphaned payments' });
+		}
+	});
+
+	// Create customer from orphaned Stripe session (manual provision)
+	app.post('/api/admin/stripe/provision', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { sessionId } = req.body;
+			if (!sessionId) {
+				res.status(400).json({ error: 'sessionId is required' });
+				return;
+			}
+
+			// Check if customer already exists
+			const existingCustomer = await getCustomerByStripeSessionId(sessionId);
+			if (existingCustomer) {
+				const { encrypted_token, ...safeCustomer } = existingCustomer;
+				res.json({ customer: safeCustomer, message: 'Customer already exists' });
+				return;
+			}
+
+			// Retrieve session from Stripe
+			const stripe = getStripe();
+			const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+			if (!session || session.payment_status !== 'paid') {
+				res.status(400).json({ error: 'Payment not completed' });
+				return;
+			}
+
+			const customerEmail = session.customer_details?.email || '';
+			const customerName = session.customer_details?.name || customerEmail.split('@')[0];
+
+			if (!customerEmail) {
+				res.status(400).json({ error: 'No email found in session' });
+				return;
+			}
+
+			// Create customer
+			const newCustomer = await createCustomerWithStripe(
+				customerName,
+				customerEmail,
+				session.customer as string || null,
+				sessionId,
+				'base',
+				5000
+			);
+
+			console.log('Admin provisioned customer:', customerEmail, 'by', req.adminUser?.email);
+
+			const { encrypted_token, ...safeCustomer } = newCustomer;
+			res.json({ customer: safeCustomer, message: 'Customer created successfully' });
+		} catch (error) {
+			console.error('Failed to provision customer:', error);
+			res.status(500).json({ error: 'Failed to provision customer' });
+		}
+	});
+
+	// Manually trigger Teable provisioning for a customer
+	app.post('/api/admin/provision-teable/:mcpKey', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+			const customer = await getCustomerByMcpKey(mcpKey);
+
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			// Forward to the existing provision-teable endpoint logic
+			// This reuses the existing provisioning code
+			const provisionUrl = `${req.protocol}://${req.get('host')}/api/provision-teable`;
+			const provisionResponse = await fetch(provisionUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					mcpKey,
+					email: customer.email,
+					name: customer.name
+				})
+			});
+
+			const result = await provisionResponse.json();
+
+			if (!provisionResponse.ok) {
+				res.status(provisionResponse.status).json(result);
+				return;
+			}
+
+			console.log('Admin triggered Teable provisioning for:', customer.email, 'by', req.adminUser?.email);
+			res.json(result);
+		} catch (error) {
+			console.error('Failed to provision Teable:', error);
+			res.status(500).json({ error: 'Failed to provision Teable account' });
+		}
 	});
 
 	// ============ MCP ENDPOINTS ============

@@ -21,6 +21,16 @@ export interface TeableCustomer {
 	created_at: string;
 }
 
+export interface AdminUser {
+	id: string;
+	user_id: string;
+	email: string;
+	name: string | null;
+	role: 'owner' | 'salesperson' | 'viewer';
+	is_active: boolean;
+	created_at: string;
+}
+
 let supabase: SupabaseClient | null = null;
 
 function getSupabaseClient(): SupabaseClient {
@@ -269,4 +279,75 @@ export async function getCustomerByStripeSessionId(sessionId: string): Promise<T
 	}
 
 	return data as TeableCustomer;
+}
+
+// ============ ADMIN FUNCTIONS ============
+
+export async function getAdminByUserId(userId: string): Promise<AdminUser | null> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_users')
+		.select('*')
+		.eq('user_id', userId)
+		.eq('is_active', true)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	return data as AdminUser;
+}
+
+export async function getAdminByEmail(email: string): Promise<AdminUser | null> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_users')
+		.select('*')
+		.eq('email', email)
+		.eq('is_active', true)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	return data as AdminUser;
+}
+
+export async function getAllCustomers(
+	page: number = 1,
+	limit: number = 50,
+	status?: string,
+	search?: string
+): Promise<{ customers: TeableCustomer[]; total: number }> {
+	const client = getSupabaseClient();
+	const offset = (page - 1) * limit;
+
+	let query = client
+		.from('teable_customers')
+		.select('*', { count: 'exact' });
+
+	if (status) {
+		query = query.eq('status', status);
+	}
+
+	if (search) {
+		query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%`);
+	}
+
+	const { data, error, count } = await query
+		.order('created_at', { ascending: false })
+		.range(offset, offset + limit - 1);
+
+	if (error) {
+		throw new Error(`Failed to fetch customers: ${error.message}`);
+	}
+
+	return {
+		customers: (data || []) as TeableCustomer[],
+		total: count || 0
+	};
 }
