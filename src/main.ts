@@ -401,6 +401,67 @@ async function startHttpServer() {
 		}
 	});
 
+	// Fallback: Create customer from Stripe session (when webhook didn't work)
+	app.post('/api/customers/from-stripe-session', async (req: Request, res: Response) => {
+		try {
+			const { sessionId } = req.body;
+
+			if (!sessionId) {
+				res.status(400).json({ error: 'sessionId is required' });
+				return;
+			}
+
+			// First check if customer already exists
+			const existingCustomer = await getCustomerByStripeSessionId(sessionId);
+			if (existingCustomer) {
+				const { encrypted_token, ...safeCustomer } = existingCustomer;
+				res.json(safeCustomer);
+				return;
+			}
+
+			// Retrieve session from Stripe
+			const stripe = getStripe();
+			const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+			if (!session || session.payment_status !== 'paid') {
+				res.status(400).json({ error: 'Payment not completed' });
+				return;
+			}
+
+			// Get customer details
+			const customerEmail = session.customer_details?.email || '';
+			const customerName = session.customer_details?.name || customerEmail.split('@')[0];
+
+			if (!customerEmail) {
+				res.status(400).json({ error: 'No email found in session' });
+				return;
+			}
+
+			console.log('Creating customer from Stripe session:', sessionId, customerEmail);
+
+			// Create customer in database
+			const newCustomer = await createCustomerWithStripe(
+				customerName,
+				customerEmail,
+				session.customer as string || null,
+				sessionId,
+				'base',
+				5000
+			);
+
+			if (!newCustomer) {
+				res.status(500).json({ error: 'Failed to create customer' });
+				return;
+			}
+
+			const { encrypted_token, ...safeCustomer } = newCustomer;
+			res.json(safeCustomer);
+		} catch (error) {
+			console.error('Error creating customer from Stripe session:', error);
+			res.status(500).json({ error: 'Failed to retrieve payment details' });
+		}
+	});
+
 	// Save customer token
 	app.post('/api/customers/:mcpKey/token', async (req: Request, res: Response) => {
 		try {
