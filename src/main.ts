@@ -509,7 +509,7 @@ async function startHttpServer() {
 			console.log('Encrypting token for mcpKey:', req.params.mcpKey);
 			const encrypted = encryptToken(token);
 			console.log('Token encrypted, updating customer...');
-			const teableBaseUrl = baseUrl || 'https://app.teable.io';
+			const teableBaseUrl = baseUrl || 'https://table.resultmarketing.asia';
 			const customer = await updateCustomerToken(req.params.mcpKey, encrypted, teableBaseUrl);
 
 			if (!customer) {
