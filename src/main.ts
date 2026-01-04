@@ -353,7 +353,7 @@ async function startHttpServer() {
 					stripeCustomerId || null,
 					stripeSessionId,
 					tier || 'base',
-					5000
+					250000
 				);
 				res.json(customer);
 			} else {
@@ -479,7 +479,7 @@ async function startHttpServer() {
 				session.customer as string || null,
 				sessionId,
 				'base',
-				5000
+				250000
 			);
 
 			if (!newCustomer) {
@@ -960,7 +960,7 @@ async function startHttpServer() {
 						session.customer as string || '',
 						session.id,
 						'free',
-						5000
+						250000
 					);
 
 					// Also create in Airtable customers table
@@ -1218,7 +1218,7 @@ async function startHttpServer() {
 				session.customer as string || null,
 				sessionId,
 				'base',
-				5000
+				250000
 			);
 
 			console.log('Admin provisioned customer:', customerEmail, 'by', req.adminUser?.email);
@@ -1301,7 +1301,7 @@ async function startHttpServer() {
 
 			// Create limits object for this customer
 			const limits: CustomerLimits = {
-				recordLimit: customer.record_limit || 5000,
+				recordLimit: customer.record_limit || 250000,
 				tier: customer.tier || 'free'
 			};
 
@@ -1371,7 +1371,7 @@ async function startHttpServer() {
 
 			// Create limits object for this customer
 			const limits: CustomerLimits = {
-				recordLimit: customer.record_limit || 5000,
+				recordLimit: customer.record_limit || 250000,
 				tier: customer.tier || 'free'
 			};
 

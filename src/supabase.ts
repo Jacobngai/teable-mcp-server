@@ -173,7 +173,7 @@ export async function createCustomerWithStripe(
 	stripeCustomerId: string | null,
 	stripeSessionId: string,
 	tier: string = 'free',
-	recordLimit: number = 5000
+	recordLimit: number = 250000
 ): Promise<TeableCustomer> {
 	const client = getSupabaseClient();
 
