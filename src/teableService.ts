@@ -40,7 +40,7 @@ export class TeableService {
 	private readonly apiKey: string;
 	private readonly baseUrl: string;
 
-	constructor(apiKey: string, baseUrl = 'https://app.teable.io/api') {
+	constructor(apiKey: string, baseUrl = 'https://table.resultmarketing.asia/api') {
 		this.apiKey = apiKey.trim();
 		if (!this.apiKey) {
 			throw new Error('teable-mcp-server: No API key provided');
