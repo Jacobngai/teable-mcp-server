@@ -10,8 +10,24 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createTeableMcpServer, CustomerLimits } from './index.js';
-import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId, getAdminByEmail, getAllCustomers, getCustomerById, AdminUser, updateCustomerPasswordHash, getCustomerForLogin } from './supabase.js';
-import { createClient } from '@supabase/supabase-js';
+import {
+	getCustomerByMcpKey,
+	logUsage,
+	createCustomerWithStripe,
+	updateCustomerTier,
+	getCustomersByEmail,
+	getCustomerByStripeSessionId,
+	getAdminByEmail,
+	getAllCustomers,
+	getCustomerById,
+	AdminUser,
+	updateCustomerPasswordHash,
+	getCustomerForLogin,
+	createCustomer,
+	updateCustomerToken,
+	markOnboardingComplete,
+	listCustomers
+} from './supabase.js';
 import { decryptToken, encryptToken } from './encryption.js';
 import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
@@ -357,7 +373,6 @@ async function startHttpServer() {
 				);
 				res.json(customer);
 			} else {
-				const { createCustomer } = await import('./supabase.js');
 				const customer = await createCustomer(name, email);
 				res.json(customer);
 			}
@@ -370,7 +385,6 @@ async function startHttpServer() {
 	// List customers
 	app.get('/api/customers', async (req: Request, res: Response) => {
 		try {
-			const { listCustomers } = await import('./supabase.js');
 			const customers = await listCustomers();
 			res.json(customers);
 		} catch (error) {
@@ -399,7 +413,6 @@ async function startHttpServer() {
 	// Get customers by email (for dashboard)
 	app.get('/api/customers/by-email/:email', async (req: Request, res: Response) => {
 		try {
-			const { getCustomersByEmail } = await import('./supabase.js');
 			const email = decodeURIComponent(req.params.email);
 			const customers = await getCustomersByEmail(email);
 			// Don't expose encrypted tokens
@@ -498,7 +511,6 @@ async function startHttpServer() {
 	// Save customer token
 	app.post('/api/customers/:mcpKey/token', async (req: Request, res: Response) => {
 		try {
-			const { updateCustomerToken } = await import('./supabase.js');
 			const { token, baseUrl } = req.body;
 
 			if (!token) {
@@ -626,7 +638,6 @@ async function startHttpServer() {
 			console.log('Saving token to database...');
 
 			// Step 4: Save encrypted token to our database
-			const { updateCustomerToken } = await import('./supabase.js');
 			const encrypted = encryptToken(accessToken);
 			await updateCustomerToken(mcpKey, encrypted, TEABLE_RM_URL);
 
@@ -677,7 +688,6 @@ async function startHttpServer() {
 	// Mark onboarding complete
 	app.post('/api/customers/onboarding-complete', async (req: Request, res: Response) => {
 		try {
-			const { markOnboardingComplete } = await import('./supabase.js');
 			const { email } = req.body;
 
 			if (!email) {
@@ -749,6 +759,186 @@ async function startHttpServer() {
 		} catch (error) {
 			console.error('Dashboard login error:', error);
 			res.status(500).json({ error: 'Login failed' });
+		}
+	});
+
+	// Store password reset tokens (in-memory, use Redis in production)
+	const resetTokens = new Map<string, { email: string; expires: number }>();
+
+	// Forgot password - send reset email
+	app.post('/api/auth/forgot-password', async (req: Request, res: Response) => {
+		try {
+			const { email } = req.body;
+
+			if (!email) {
+				res.status(400).json({ error: 'Email is required' });
+				return;
+			}
+
+			// Find customer
+			const customer = await getCustomerForLogin(email);
+
+			// Always return success to prevent email enumeration
+			if (!customer) {
+				res.json({ success: true, message: 'If an account exists, a reset link will be sent.' });
+				return;
+			}
+
+			// Generate reset token
+			const resetToken = randomBytes(32).toString('hex');
+			const expires = Date.now() + (60 * 60 * 1000); // 1 hour
+			resetTokens.set(resetToken, { email, expires });
+
+			// Send reset email
+			const resetUrl = `${FRONTEND_URL}/reset-password.html?token=${resetToken}`;
+
+			try {
+				await getResend().emails.send({
+					from: 'Result Marketing <noreply@resultmarketing.asia>',
+					to: email,
+					subject: 'Reset Your Password - Result Marketing',
+					html: `
+						<h1>Password Reset</h1>
+						<p>You requested to reset your password. Click the link below to set a new password:</p>
+						<p><a href="${resetUrl}" style="background: #667eea; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Reset Password</a></p>
+						<p>Or copy this link: ${resetUrl}</p>
+						<p>This link expires in 1 hour.</p>
+						<p>If you didn't request this, please ignore this email.</p>
+						<hr>
+						<p>- The Result Marketing Team</p>
+					`
+				});
+			} catch (emailError) {
+				console.error('Failed to send reset email:', emailError);
+			}
+
+			res.json({ success: true, message: 'If an account exists, a reset link will be sent.' });
+
+		} catch (error) {
+			console.error('Forgot password error:', error);
+			res.status(500).json({ error: 'Failed to process request' });
+		}
+	});
+
+	// Validate reset token
+	app.get('/api/auth/validate-reset-token/:token', async (req: Request, res: Response) => {
+		const { token } = req.params;
+		const resetData = resetTokens.get(token);
+
+		if (!resetData) {
+			res.status(400).json({ error: 'Invalid or expired reset token' });
+			return;
+		}
+
+		if (Date.now() > resetData.expires) {
+			resetTokens.delete(token);
+			res.status(400).json({ error: 'Reset token has expired' });
+			return;
+		}
+
+		res.json({ success: true, email: resetData.email });
+	});
+
+	// Reset password with token
+	app.post('/api/auth/reset-password', async (req: Request, res: Response) => {
+		try {
+			const { token, password } = req.body;
+
+			if (!token || !password) {
+				res.status(400).json({ error: 'Token and password are required' });
+				return;
+			}
+
+			if (password.length < 8) {
+				res.status(400).json({ error: 'Password must be at least 8 characters' });
+				return;
+			}
+
+			// Validate token
+			const resetData = resetTokens.get(token);
+
+			if (!resetData) {
+				res.status(400).json({ error: 'Invalid or expired reset token' });
+				return;
+			}
+
+			if (Date.now() > resetData.expires) {
+				resetTokens.delete(token);
+				res.status(400).json({ error: 'Reset token has expired' });
+				return;
+			}
+
+			// Find customer
+			const customer = await getCustomerForLogin(resetData.email);
+
+			if (!customer) {
+				res.status(400).json({ error: 'Account not found' });
+				return;
+			}
+
+			// Hash new password and update
+			const passwordHash = hashPassword(password);
+			await updateCustomerPasswordHash(customer.mcp_key, passwordHash);
+
+			// Delete used token
+			resetTokens.delete(token);
+
+			// Also update Teable password
+			const TEABLE_RM_URL = 'https://table.resultmarketing.asia';
+			try {
+				// This would require admin access to Teable's auth API
+				// For now, log that this would need to be synced
+				console.log('Password reset for:', resetData.email, '- Teable sync would be needed');
+			} catch (teableError) {
+				console.error('Teable password sync failed:', teableError);
+			}
+
+			res.json({ success: true, message: 'Password reset successfully' });
+
+		} catch (error) {
+			console.error('Reset password error:', error);
+			res.status(500).json({ error: 'Failed to reset password' });
+		}
+	});
+
+	// Change password (for logged-in users)
+	app.post('/api/auth/change-password', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey, currentPassword, newPassword } = req.body;
+
+			if (!mcpKey || !currentPassword || !newPassword) {
+				res.status(400).json({ error: 'All fields are required' });
+				return;
+			}
+
+			if (newPassword.length < 8) {
+				res.status(400).json({ error: 'New password must be at least 8 characters' });
+				return;
+			}
+
+			// Get customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			// Verify current password
+			if (!customer.password_hash || !verifyPassword(currentPassword, customer.password_hash)) {
+				res.status(401).json({ error: 'Current password is incorrect' });
+				return;
+			}
+
+			// Hash and update new password
+			const passwordHash = hashPassword(newPassword);
+			await updateCustomerPasswordHash(mcpKey, passwordHash);
+
+			res.json({ success: true, message: 'Password changed successfully' });
+
+		} catch (error) {
+			console.error('Change password error:', error);
+			res.status(500).json({ error: 'Failed to change password' });
 		}
 	});
 
@@ -963,10 +1153,6 @@ async function startHttpServer() {
 						250000
 					);
 
-					// Also create in Airtable customers table
-					const { createAirtableCustomer } = await import('./supabase.js');
-					await createAirtableCustomer(customerName, customerEmail, session.customer as string || '', session.id);
-
 					// Send welcome email
 					await getResend().emails.send({
 						from: 'Result Marketing <noreply@resultmarketing.asia>',
@@ -1030,6 +1216,49 @@ async function startHttpServer() {
 		adminUser?: AdminUser;
 	}
 
+	// Store admin sessions (simple in-memory store, use Redis in production)
+	const adminSessions = new Map<string, { email: string; expires: number }>();
+
+	// Admin login endpoint
+	app.post('/api/admin/login', async (req: Request, res: Response) => {
+		try {
+			const { email, password } = req.body;
+
+			if (!email || !password) {
+				res.status(400).json({ error: 'Email and password are required' });
+				return;
+			}
+
+			// Check if user is admin
+			const adminUser = await getAdminByEmail(email);
+			if (!adminUser) {
+				res.status(401).json({ error: 'Invalid credentials' });
+				return;
+			}
+
+			// Verify admin password (stored in environment or check against admin table)
+			const adminPassword = process.env.ADMIN_PASSWORD || 'admin123!';
+			if (password !== adminPassword) {
+				res.status(401).json({ error: 'Invalid credentials' });
+				return;
+			}
+
+			// Create session token
+			const sessionToken = randomBytes(32).toString('hex');
+			const expires = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+			adminSessions.set(sessionToken, { email, expires });
+
+			res.json({
+				success: true,
+				token: sessionToken,
+				admin: adminUser
+			});
+		} catch (error) {
+			console.error('Admin login error:', error);
+			res.status(500).json({ error: 'Login failed' });
+		}
+	});
+
 	async function requireAdmin(req: AdminRequest, res: Response, next: NextFunction): Promise<void> {
 		const authHeader = req.headers.authorization;
 		if (!authHeader?.startsWith('Bearer ')) {
@@ -1040,25 +1269,23 @@ async function startHttpServer() {
 		const token = authHeader.substring(7);
 
 		try {
-			// Create Supabase client with anon key to verify the token
-			const supabaseUrl = process.env.SUPABASE_URL;
-			const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_KEY;
+			// Check session store
+			const session = adminSessions.get(token);
 
-			if (!supabaseUrl || !supabaseAnonKey) {
-				res.status(500).json({ error: 'Server configuration error' });
-				return;
-			}
-
-			const supabase = createClient(supabaseUrl, supabaseAnonKey);
-			const { data: { user }, error } = await supabase.auth.getUser(token);
-
-			if (error || !user) {
+			if (!session) {
 				res.status(401).json({ error: 'Invalid token' });
 				return;
 			}
 
-			// Check if user is admin
-			const adminUser = await getAdminByEmail(user.email || '');
+			// Check if session expired
+			if (Date.now() > session.expires) {
+				adminSessions.delete(token);
+				res.status(401).json({ error: 'Session expired' });
+				return;
+			}
+
+			// Get admin user
+			const adminUser = await getAdminByEmail(session.email);
 			if (!adminUser) {
 				res.status(403).json({ error: 'Not authorized as admin' });
 				return;
