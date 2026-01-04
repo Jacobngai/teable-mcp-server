@@ -10,10 +10,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createTeableMcpServer, CustomerLimits } from './index.js';
-import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId, getAdminByEmail, getAllCustomers, getCustomerById, AdminUser } from './supabase.js';
+import { getCustomerByMcpKey, logUsage, createCustomerWithStripe, updateCustomerTier, getCustomersByEmail, getCustomerByStripeSessionId, getAdminByEmail, getAllCustomers, getCustomerById, AdminUser, updateCustomerPasswordHash, getCustomerForLogin } from './supabase.js';
 import { createClient } from '@supabase/supabase-js';
 import { decryptToken, encryptToken } from './encryption.js';
-import { randomUUID, randomBytes } from 'crypto';
+import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
 import { Resend } from 'resend';
 
@@ -27,6 +27,25 @@ function generateSecurePassword(): string {
 	}
 	// Ensure at least one uppercase, one lowercase, one digit, one special
 	return password.charAt(0).toUpperCase() + password.slice(1, 14) + '1!';
+}
+
+// Password hashing using scrypt
+function hashPassword(password: string): string {
+	const salt = randomBytes(16).toString('hex');
+	const hash = scryptSync(password, salt, 64).toString('hex');
+	return `${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+	try {
+		const [salt, hash] = storedHash.split(':');
+		if (!salt || !hash) return false;
+		const hashBuffer = Buffer.from(hash, 'hex');
+		const suppliedHashBuffer = scryptSync(password, salt, 64);
+		return timingSafeEqual(hashBuffer, suppliedHashBuffer);
+	} catch {
+		return false;
+	}
 }
 
 // Create CRM template tables in a Teable space
@@ -611,6 +630,11 @@ async function startHttpServer() {
 			const encrypted = encryptToken(accessToken);
 			await updateCustomerToken(mcpKey, encrypted, TEABLE_RM_URL);
 
+			// Step 5: Hash and store password for dashboard login
+			const passwordHash = hashPassword(password);
+			await updateCustomerPasswordHash(mcpKey, passwordHash);
+			console.log('Password hash saved for dashboard access');
+
 			console.log('Teable provisioning complete for:', email);
 
 			// Return credentials (password shown once, token is stored encrypted)
@@ -666,6 +690,172 @@ async function startHttpServer() {
 		} catch (error) {
 			console.error('Error marking onboarding complete:', error);
 			res.status(500).json({ error: 'Failed to mark onboarding complete' });
+		}
+	});
+
+	// ============ DASHBOARD AUTH ENDPOINTS ============
+
+	// Dashboard login - verify email + password
+	app.post('/api/auth/dashboard-login', async (req: Request, res: Response) => {
+		try {
+			const { email, password } = req.body;
+
+			if (!email || !password) {
+				res.status(400).json({ error: 'Email and password are required' });
+				return;
+			}
+
+			// Find customer by email
+			const customer = await getCustomerForLogin(email);
+
+			if (!customer) {
+				res.status(401).json({ error: 'Invalid email or password' });
+				return;
+			}
+
+			// Check if password hash exists
+			if (!customer.password_hash) {
+				res.status(401).json({ error: 'Account not set up. Please complete setup first.' });
+				return;
+			}
+
+			// Verify password
+			const isValid = verifyPassword(password, customer.password_hash);
+
+			if (!isValid) {
+				res.status(401).json({ error: 'Invalid email or password' });
+				return;
+			}
+
+			// Generate session token (simple approach - just use mcp_key as auth)
+			const sessionToken = randomBytes(32).toString('hex');
+
+			// Return customer data (without sensitive fields)
+			res.json({
+				success: true,
+				sessionToken,
+				customer: {
+					id: customer.id,
+					name: customer.name,
+					email: customer.email,
+					mcp_key: customer.mcp_key,
+					teable_base_url: customer.teable_base_url,
+					tier: customer.tier,
+					record_limit: customer.record_limit,
+					status: customer.status
+				}
+			});
+
+		} catch (error) {
+			console.error('Dashboard login error:', error);
+			res.status(500).json({ error: 'Login failed' });
+		}
+	});
+
+	// Get customer dashboard data by mcp_key (for authenticated sessions)
+	app.get('/api/dashboard/:mcpKey', async (req: Request, res: Response) => {
+		try {
+			const customer = await getCustomerByMcpKey(req.params.mcpKey);
+
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			// Return dashboard data
+			res.json({
+				success: true,
+				customer: {
+					id: customer.id,
+					name: customer.name,
+					email: customer.email,
+					mcp_key: customer.mcp_key,
+					teable_base_url: customer.teable_base_url,
+					tier: customer.tier,
+					record_limit: customer.record_limit,
+					status: customer.status,
+					onboarding_complete: customer.onboarding_complete
+				},
+				mcp_url: `https://teable-mcp-server-production.up.railway.app/mcp/${customer.mcp_key}/mcp`,
+				claude_config: {
+					mcpServers: {
+						"teable-ai": {
+							url: `https://teable-mcp-server-production.up.railway.app/mcp/${customer.mcp_key}/mcp`
+						}
+					}
+				}
+			});
+
+		} catch (error) {
+			console.error('Dashboard data error:', error);
+			res.status(500).json({ error: 'Failed to get dashboard data' });
+		}
+	});
+
+	// ============ DEBUG ENDPOINT ============
+
+	// Debug endpoint to test PAT validity
+	app.get('/api/debug/test-pat/:mcpKey', async (req: Request, res: Response) => {
+		try {
+			const customer = await getCustomerByMcpKey(req.params.mcpKey);
+
+			if (!customer) {
+				res.json({ error: 'Customer not found', step: 'lookup' });
+				return;
+			}
+
+			if (!customer.encrypted_token) {
+				res.json({ error: 'No encrypted token found', step: 'token_check', customer_email: customer.email });
+				return;
+			}
+
+			// Try to decrypt
+			let decryptedToken: string;
+			try {
+				decryptedToken = decryptToken(customer.encrypted_token);
+			} catch (decryptError) {
+				res.json({
+					error: 'Decryption failed',
+					step: 'decrypt',
+					message: decryptError instanceof Error ? decryptError.message : 'Unknown',
+					encrypted_token_length: customer.encrypted_token.length,
+					encrypted_token_preview: customer.encrypted_token.substring(0, 50) + '...'
+				});
+				return;
+			}
+
+			// Test the token against Teable API
+			const teableUrl = customer.teable_base_url || 'https://table.resultmarketing.asia';
+			const testResponse = await fetch(`${teableUrl}/api/space`, {
+				headers: {
+					'Authorization': `Bearer ${decryptedToken}`
+				}
+			});
+
+			const responseText = await testResponse.text();
+			let responseJson;
+			try {
+				responseJson = JSON.parse(responseText);
+			} catch {
+				responseJson = null;
+			}
+
+			res.json({
+				success: testResponse.ok,
+				step: 'api_test',
+				customer_email: customer.email,
+				teable_url: teableUrl,
+				token_length: decryptedToken.length,
+				token_preview: decryptedToken.substring(0, 10) + '...',
+				api_status: testResponse.status,
+				api_response_type: testResponse.headers.get('content-type'),
+				api_response_is_json: responseJson !== null,
+				api_response_preview: responseText.substring(0, 200)
+			});
+
+		} catch (error) {
+			console.error('Debug PAT test error:', error);
+			res.status(500).json({ error: 'Debug test failed', message: error instanceof Error ? error.message : 'Unknown' });
 		}
 	});
 

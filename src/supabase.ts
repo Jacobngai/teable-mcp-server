@@ -19,6 +19,7 @@ export interface TeableCustomer {
 	stripe_session_id: string | null;
 	expires_at: string | null;
 	created_at: string;
+	password_hash: string | null;
 }
 
 export interface AdminUser {
@@ -349,4 +350,41 @@ export async function getAllCustomers(
 		customers: (data || []) as TeableCustomer[],
 		total: count || 0
 	};
+}
+
+// ============ DASHBOARD AUTH FUNCTIONS ============
+
+export async function updateCustomerPasswordHash(
+	mcpKey: string,
+	passwordHash: string
+): Promise<void> {
+	const client = getSupabaseClient();
+
+	const { error } = await client
+		.from('teable_customers')
+		.update({ password_hash: passwordHash })
+		.eq('mcp_key', mcpKey);
+
+	if (error) {
+		throw new Error(`Failed to update password hash: ${error.message}`);
+	}
+}
+
+export async function getCustomerForLogin(email: string): Promise<TeableCustomer | null> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('teable_customers')
+		.select('*')
+		.eq('email', email)
+		.eq('status', 'active')
+		.order('created_at', { ascending: false })
+		.limit(1)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	return data as TeableCustomer;
 }
