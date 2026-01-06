@@ -969,8 +969,9 @@ async function startHttpServer() {
 				mcp_url: `https://teable-mcp-server-production.up.railway.app/mcp/${customer.mcp_key}/mcp`,
 				claude_config: {
 					mcpServers: {
-						"teable-ai": {
-							url: `https://teable-mcp-server-production.up.railway.app/mcp/${customer.mcp_key}/mcp`
+						"resultmarketing-ai": {
+							command: "npx",
+							args: ["-y", "mcp-remote", `https://teable-mcp-server-production.up.railway.app/mcp/${customer.mcp_key}/mcp`]
 						}
 					}
 				}
