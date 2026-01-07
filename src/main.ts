@@ -335,10 +335,14 @@ async function startHttpServer() {
 		next();
 	});
 
-	// Skip JSON parsing for MCP endpoints (StreamableHTTPServerTransport needs raw body)
+	// Skip JSON parsing for endpoints that need raw body:
+	// - MCP endpoints (StreamableHTTPServerTransport needs raw body)
+	// - Stripe webhook (needs raw body for signature verification)
 	app.use((req: Request, res: Response, next: NextFunction) => {
 		if (req.path.includes('/mcp/') && req.path.endsWith('/mcp')) {
 			next();
+		} else if (req.path === '/api/webhook/stripe') {
+			next();  // Stripe webhook uses express.raw() in its route handler
 		} else {
 			express.json()(req, res, next);
 		}
@@ -1126,8 +1130,16 @@ async function startHttpServer() {
 
 	// Stripe Webhook Handler
 	app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+		console.log('=== WEBHOOK RECEIVED ===');
+		console.log('Content-Type:', req.headers['content-type']);
+		console.log('Body type:', typeof req.body);
+		console.log('Body is Buffer:', Buffer.isBuffer(req.body));
+
 		const sig = req.headers['stripe-signature'] as string;
 		const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
+		console.log('Signature present:', !!sig);
+		console.log('Secret configured:', !!webhookSecret, 'length:', webhookSecret.length);
 
 		let event: Stripe.Event;
 
@@ -1135,11 +1147,12 @@ async function startHttpServer() {
 			event = getStripe().webhooks.constructEvent(req.body, sig, webhookSecret);
 		} catch (err) {
 			console.error('Webhook signature verification failed:', err);
+			console.error('Body preview:', req.body?.toString?.()?.substring(0, 100) || 'N/A');
 			res.status(400).json({ error: 'Webhook signature verification failed' });
 			return;
 		}
 
-		console.log('Stripe webhook event:', event.type);
+		console.log('Stripe webhook event verified:', event.type);
 
 		if (event.type === 'checkout.session.completed') {
 			const session = event.data.object as Stripe.Checkout.Session;
