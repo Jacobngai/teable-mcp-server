@@ -654,10 +654,11 @@ async function startHttpServer() {
 			const encrypted = encryptToken(accessToken);
 			await updateCustomerToken(mcpKey, encrypted, TEABLE_RM_URL);
 
-			// Step 5: Hash and store password for dashboard login
+			// Step 5: Hash and store password for dashboard login (also store encrypted for retrieval)
 			const passwordHash = hashPassword(password);
-			await updateCustomerPasswordHash(mcpKey, passwordHash);
-			console.log('Password hash saved for dashboard access');
+			const encryptedPassword = encryptToken(password);
+			await updateCustomerPasswordHash(mcpKey, passwordHash, encryptedPassword);
+			console.log('Password hash and encrypted password saved for dashboard access');
 
 			console.log('Teable provisioning complete for:', email);
 
@@ -965,6 +966,16 @@ async function startHttpServer() {
 				return;
 			}
 
+			// Decrypt password if available
+			let teablePassword: string | null = null;
+			if (customer.encrypted_password) {
+				try {
+					teablePassword = decryptToken(customer.encrypted_password);
+				} catch (e) {
+					console.error('Failed to decrypt password:', e);
+				}
+			}
+
 			// Return dashboard data
 			res.json({
 				success: true,
@@ -979,6 +990,7 @@ async function startHttpServer() {
 					status: customer.status,
 					onboarding_complete: customer.onboarding_complete
 				},
+				teable_password: teablePassword,
 				mcp_url: `https://teable-mcp-server-production.up.railway.app/mcp/${customer.mcp_key}/mcp`,
 				claude_config: {
 					mcpServers: {

@@ -9,6 +9,7 @@ export interface TeableCustomer {
 	name: string;
 	email: string;
 	encrypted_token: string | null;
+	encrypted_password: string | null;
 	mcp_key: string;
 	teable_base_url: string;
 	status: 'pending' | 'active' | 'suspended' | 'cancelled';
@@ -356,13 +357,19 @@ export async function getAllCustomers(
 
 export async function updateCustomerPasswordHash(
 	mcpKey: string,
-	passwordHash: string
+	passwordHash: string,
+	encryptedPassword?: string
 ): Promise<void> {
 	const client = getSupabaseClient();
 
+	const updateData: Record<string, unknown> = { password_hash: passwordHash };
+	if (encryptedPassword) {
+		updateData.encrypted_password = encryptedPassword;
+	}
+
 	const { error } = await client
 		.from('teable_customers')
-		.update({ password_hash: passwordHash })
+		.update(updateData)
 		.eq('mcp_key', mcpKey);
 
 	if (error) {
