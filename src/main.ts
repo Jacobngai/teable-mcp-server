@@ -485,6 +485,15 @@ async function startHttpServer() {
 
 			console.log('Creating customer from Stripe session:', sessionId, customerEmail);
 
+			// Check if customer with this email already exists (different session)
+			const existingByEmail = await getCustomersByEmail(customerEmail);
+			if (existingByEmail.length > 0) {
+				console.log('Customer already exists for email:', customerEmail, '- returning existing');
+				const { encrypted_token, ...safeCustomer } = existingByEmail[0];
+				res.json(safeCustomer);
+				return;
+			}
+
 			// Create customer in database
 			const newCustomer = await createCustomerWithStripe(
 				customerName,
@@ -1140,42 +1149,54 @@ async function startHttpServer() {
 			const customerEmail = email || session.customer_details?.email || '';
 			const customerName = name || session.customer_details?.name || customerEmail.split('@')[0] || 'Customer';
 
-			// Handle new customer from Checkout Session with metadata OR from Payment Link
-			if ((type === 'base' && customerEmail) || (!type && customerEmail && session.mode === 'subscription')) {
+			// Handle new customer from:
+			// 1. Checkout Session with type='base' metadata (from API)
+			// 2. Payment Link (subscription or one-time payment without metadata)
+			const isNewCustomer = (type === 'base' && customerEmail) ||
+				(!type && customerEmail && (session.mode === 'subscription' || session.mode === 'payment'));
+
+			if (isNewCustomer) {
 				// New customer - create accounts
 				try {
-					// Create customer in teable_customers
-					const teableCustomer = await createCustomerWithStripe(
-						customerName,
-						customerEmail,
-						session.customer as string || '',
-						session.id,
-						'free',
-						250000
-					);
+					// Check if customer already exists (duplicate payment)
+					const existingCustomers = await getCustomersByEmail(customerEmail);
+					if (existingCustomers.length > 0) {
+						console.log('Customer already exists for email:', customerEmail, '- skipping creation');
+						// Still acknowledge webhook but don't create duplicate
+					} else {
+						// Create customer in teable_customers
+						const teableCustomer = await createCustomerWithStripe(
+							customerName,
+							customerEmail,
+							session.customer as string || '',
+							session.id,
+							'free',
+							250000
+						);
 
-					// Send welcome email
-					await getResend().emails.send({
-						from: 'Result Marketing <noreply@resultmarketing.asia>',
-						to: customerEmail,
-						subject: 'Welcome to Result Marketing - Your AI Connector is Ready!',
-						html: `
-							<h1>Welcome, ${customerName}!</h1>
-							<p>Thank you for your purchase! Your AI Connector account is now active.</p>
-							<h2>Next Steps:</h2>
-							<ol>
-								<li>Complete setup: <a href="${FRONTEND_URL}/payment-success.html?session_id=${session.id}">Continue Setup</a></li>
-								<li>Connect your Teable database</li>
-								<li>Start using AI with your data!</li>
-							</ol>
-							<p>Your login email: <strong>${customerEmail}</strong></p>
-							<hr>
-							<p>Need help? Reply to this email or contact support.</p>
-							<p>- The Result Marketing Team</p>
-						`
-					});
+						// Send welcome email
+						await getResend().emails.send({
+							from: 'Result Marketing <noreply@resultmarketing.asia>',
+							to: customerEmail,
+							subject: 'Welcome to Result Marketing - Your AI Connector is Ready!',
+							html: `
+								<h1>Welcome, ${customerName}!</h1>
+								<p>Thank you for your purchase! Your AI Connector account is now active.</p>
+								<h2>Next Steps:</h2>
+								<ol>
+									<li>Complete setup: <a href="${FRONTEND_URL}/payment-success.html?session_id=${session.id}">Continue Setup</a></li>
+									<li>Connect your Teable database</li>
+									<li>Start using AI with your data!</li>
+								</ol>
+								<p>Your login email: <strong>${customerEmail}</strong></p>
+								<hr>
+								<p>Need help? Reply to this email or contact support.</p>
+								<p>- The Result Marketing Team</p>
+							`
+						});
 
-					console.log('New customer created:', customerEmail);
+						console.log('New customer created:', customerEmail);
+					}
 				} catch (error) {
 					console.error('Failed to create customer:', error);
 				}
