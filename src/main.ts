@@ -1189,13 +1189,13 @@ async function startHttpServer() {
 						console.log('Customer already exists for email:', customerEmail, '- skipping creation');
 						// Still acknowledge webhook but don't create duplicate
 					} else {
-						// Create customer in teable_customers
+						// Create customer in teable_customers (pro tier since they paid)
 						const teableCustomer = await createCustomerWithStripe(
 							customerName,
 							customerEmail,
 							session.customer as string || '',
 							session.id,
-							'free',
+							'pro',
 							250000
 						);
 
