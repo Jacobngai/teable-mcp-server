@@ -42,6 +42,16 @@ export interface UsageLog {
 	created_at: string;
 }
 
+export interface Lead {
+	id: string;
+	name: string;
+	phone: string;
+	source: string | null;
+	status: 'new' | 'contacted' | 'converted' | 'not_interested';
+	notes: string | null;
+	created_at: string;
+}
+
 let pool: pg.Pool | null = null;
 
 function getPool(): pg.Pool {
@@ -365,6 +375,16 @@ export async function initializeDatabase(): Promise<void> {
 			created_at TIMESTAMPTZ DEFAULT NOW()
 		);
 
+		CREATE TABLE IF NOT EXISTS leads (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			name VARCHAR(255) NOT NULL,
+			phone VARCHAR(50) NOT NULL,
+			source VARCHAR(100),
+			status VARCHAR(50) DEFAULT 'new',
+			notes TEXT,
+			created_at TIMESTAMPTZ DEFAULT NOW()
+		);
+
 		-- Create indexes for better performance
 		CREATE INDEX IF NOT EXISTS idx_customers_email ON teable_customers(email);
 		CREATE INDEX IF NOT EXISTS idx_customers_mcp_key ON teable_customers(mcp_key);
@@ -373,6 +393,8 @@ export async function initializeDatabase(): Promise<void> {
 		CREATE INDEX IF NOT EXISTS idx_usage_logs_customer ON teable_usage_logs(customer_id);
 		CREATE INDEX IF NOT EXISTS idx_admin_users_email ON admin_users(email);
 		CREATE INDEX IF NOT EXISTS idx_admin_users_user_id ON admin_users(user_id);
+		CREATE INDEX IF NOT EXISTS idx_leads_created_at ON leads(created_at DESC);
+		CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 	`);
 
 	console.log('Database tables initialized successfully');
@@ -440,6 +462,82 @@ export async function migrateFromBackup(backupData: {
 	}
 
 	console.log('Data migration completed successfully');
+}
+
+// ============ LEADS MANAGEMENT ============
+
+export async function createLead(
+	name: string,
+	phone: string,
+	source?: string
+): Promise<Lead> {
+	const client = getPool();
+	const result = await client.query(
+		`INSERT INTO leads (name, phone, source)
+		 VALUES ($1, $2, $3)
+		 RETURNING *`,
+		[name, phone, source || null]
+	);
+	return result.rows[0];
+}
+
+export async function getLeads(
+	status?: string,
+	limit: number = 100
+): Promise<Lead[]> {
+	const client = getPool();
+	let query = 'SELECT * FROM leads';
+	const params: any[] = [];
+
+	if (status) {
+		query += ' WHERE status = $1';
+		params.push(status);
+	}
+
+	query += ' ORDER BY created_at DESC LIMIT $' + (params.length + 1);
+	params.push(limit);
+
+	const result = await client.query(query, params);
+	return result.rows;
+}
+
+export async function updateLeadStatus(
+	leadId: string,
+	status: string,
+	notes?: string
+): Promise<Lead | null> {
+	const client = getPool();
+	const result = await client.query(
+		`UPDATE leads SET status = $1, notes = COALESCE($2, notes)
+		 WHERE id = $3
+		 RETURNING *`,
+		[status, notes || null, leadId]
+	);
+	return result.rows[0] || null;
+}
+
+export async function getLeadStats(): Promise<{
+	total: number;
+	new: number;
+	contacted: number;
+	converted: number;
+}> {
+	const client = getPool();
+	const result = await client.query(`
+		SELECT
+			COUNT(*) as total,
+			COUNT(*) FILTER (WHERE status = 'new') as new,
+			COUNT(*) FILTER (WHERE status = 'contacted') as contacted,
+			COUNT(*) FILTER (WHERE status = 'converted') as converted
+		FROM leads
+	`);
+	const row = result.rows[0];
+	return {
+		total: parseInt(row.total),
+		new: parseInt(row.new),
+		contacted: parseInt(row.contacted),
+		converted: parseInt(row.converted)
+	};
 }
 
 // Graceful shutdown

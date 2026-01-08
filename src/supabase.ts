@@ -33,6 +33,16 @@ export interface AdminUser {
 	created_at: string;
 }
 
+export interface Lead {
+	id: string;
+	name: string;
+	phone: string;
+	source: string | null;
+	status: 'new' | 'contacted' | 'converted' | 'not_interested';
+	notes: string | null;
+	created_at: string;
+}
+
 let supabase: SupabaseClient | null = null;
 
 function getSupabaseClient(): SupabaseClient {
@@ -411,4 +421,98 @@ export async function getCustomerForLogin(email: string): Promise<TeableCustomer
 	}
 
 	return data as TeableCustomer;
+}
+
+// ============ LEADS MANAGEMENT ============
+
+export async function createLead(
+	name: string,
+	phone: string,
+	source?: string
+): Promise<Lead> {
+	const client = getSupabaseClient();
+	const { data, error } = await client
+		.from('leads')
+		.insert({
+			name,
+			phone,
+			source: source || null,
+			status: 'new'
+		})
+		.select()
+		.single();
+
+	if (error) {
+		throw new Error(`Failed to create lead: ${error.message}`);
+	}
+
+	return data as Lead;
+}
+
+export async function getLeads(
+	status?: string,
+	limit: number = 100
+): Promise<Lead[]> {
+	const client = getSupabaseClient();
+	let query = client.from('leads').select('*');
+
+	if (status) {
+		query = query.eq('status', status);
+	}
+
+	const { data, error } = await query
+		.order('created_at', { ascending: false })
+		.limit(limit);
+
+	if (error) {
+		throw new Error(`Failed to get leads: ${error.message}`);
+	}
+
+	return data as Lead[];
+}
+
+export async function updateLeadStatus(
+	leadId: string,
+	status: string,
+	notes?: string
+): Promise<Lead | null> {
+	const client = getSupabaseClient();
+	const updateData: any = { status };
+	if (notes) {
+		updateData.notes = notes;
+	}
+
+	const { data, error } = await client
+		.from('leads')
+		.update(updateData)
+		.eq('id', leadId)
+		.select()
+		.single();
+
+	if (error) {
+		return null;
+	}
+
+	return data as Lead;
+}
+
+export async function getLeadStats(): Promise<{
+	total: number;
+	new: number;
+	contacted: number;
+	converted: number;
+}> {
+	const client = getSupabaseClient();
+	const { data, error } = await client.from('leads').select('status');
+
+	if (error || !data) {
+		return { total: 0, new: 0, contacted: 0, converted: 0 };
+	}
+
+	return {
+		total: data.length,
+		new: data.filter(l => l.status === 'new').length,
+		contacted: data.filter(l => l.status === 'contacted').length,
+		converted: data.filter(l => l.status === 'converted').length
+	};
 }

@@ -26,6 +26,10 @@ import {
 	createCustomer,
 	updateCustomerToken,
 	markOnboardingComplete,
+	createLead,
+	getLeads,
+	updateLeadStatus,
+	getLeadStats,
 	listCustomers,
 	deleteCustomer
 } from './supabase.js';
@@ -1490,6 +1494,73 @@ async function startHttpServer() {
 		} catch (error) {
 			console.error('Failed to delete customer:', error);
 			res.status(500).json({ error: 'Failed to delete customer' });
+		}
+	});
+
+	// ============ LEADS API ============
+
+	// Create lead (public - no auth required)
+	app.post('/api/leads', async (req: Request, res: Response) => {
+		try {
+			const { name, phone, source } = req.body;
+
+			if (!name || !phone) {
+				res.status(400).json({ error: 'Name and phone are required' });
+				return;
+			}
+
+			const lead = await createLead(name, phone, source);
+			console.log('New lead created:', name, phone, source);
+
+			res.json({
+				success: true,
+				lead,
+				whatsappUrl: 'https://wa.me/60175740795?text=' + encodeURIComponent(`Hi, saya ${name}. Saya baru sign up untuk demo.`)
+			});
+		} catch (error) {
+			console.error('Failed to create lead:', error);
+			res.status(500).json({ error: 'Failed to create lead' });
+		}
+	});
+
+	// Get leads (admin only)
+	app.get('/api/admin/leads', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const status = req.query.status as string | undefined;
+			const limit = parseInt(req.query.limit as string) || 100;
+
+			const leads = await getLeads(status, limit);
+			const stats = await getLeadStats();
+
+			res.json({ leads, stats });
+		} catch (error) {
+			console.error('Failed to get leads:', error);
+			res.status(500).json({ error: 'Failed to get leads' });
+		}
+	});
+
+	// Update lead status (admin only)
+	app.patch('/api/admin/leads/:id', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { id } = req.params;
+			const { status, notes } = req.body;
+
+			if (!status) {
+				res.status(400).json({ error: 'Status is required' });
+				return;
+			}
+
+			const lead = await updateLeadStatus(id, status, notes);
+
+			if (!lead) {
+				res.status(404).json({ error: 'Lead not found' });
+				return;
+			}
+
+			res.json(lead);
+		} catch (error) {
+			console.error('Failed to update lead:', error);
+			res.status(500).json({ error: 'Failed to update lead' });
 		}
 	});
 
