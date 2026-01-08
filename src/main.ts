@@ -838,7 +838,17 @@ async function startHttpServer() {
 			// Generate session token (simple approach - just use mcp_key as auth)
 			const sessionToken = randomBytes(32).toString('hex');
 
-			// Return customer data (without sensitive fields)
+			// Decrypt teable password if available
+			let teablePassword: string | null = null;
+			if (customer.encrypted_password) {
+				try {
+					teablePassword = decryptToken(customer.encrypted_password);
+				} catch (e) {
+					console.error('Failed to decrypt password during login:', e);
+				}
+			}
+
+			// Return customer data
 			res.json({
 				success: true,
 				sessionToken,
@@ -851,7 +861,8 @@ async function startHttpServer() {
 					tier: customer.tier,
 					record_limit: customer.record_limit,
 					status: customer.status
-				}
+				},
+				teable_password: teablePassword
 			});
 
 		} catch (error) {
@@ -1283,7 +1294,7 @@ async function startHttpServer() {
 
 						if (priceId === PRICE_ENTERPRISE) {
 							customerTier = 'enterprise';
-							customerRecordLimit = 500000;
+							customerRecordLimit = 1000000;
 						}
 
 						console.log(`Creating customer with tier: ${customerTier}, limit: ${customerRecordLimit}, priceId: ${priceId}`);
@@ -1701,7 +1712,7 @@ async function startHttpServer() {
 				'free': 50000,
 				'base': 100000,
 				'pro': 250000,
-				'enterprise': 500000
+				'enterprise': 1000000
 			};
 
 			const validTier = tierConfig[tier] ? tier : 'free';
