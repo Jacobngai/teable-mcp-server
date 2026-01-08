@@ -586,58 +586,78 @@ async function startHttpServer() {
 				const errData = await signupResponse.json().catch(() => ({}));
 				const errorMessage = errData.message || '';
 
-				// Check if user already exists - try to signin instead
+				// Check if user already exists - delete from Teable and retry
 				if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
-					console.log('User already exists in Teable, checking for stored password...');
-					isExistingUser = true;
+					console.log('User already exists in Teable, attempting to delete and recreate...');
 
-					// Check if we have stored password for this user
-					const existingCustomer = await getCustomerByMcpKey(mcpKey);
-					if (existingCustomer?.encrypted_password) {
-						// Use stored password to signin
-						const storedPassword = decryptToken(existingCustomer.encrypted_password);
-						console.log('Found stored password, attempting signin...');
+					// Try to delete existing user from Teable's database
+					const teableDbUrl = process.env.TEABLE_DATABASE_URL;
+					if (teableDbUrl) {
+						try {
+							const { Client } = await import('pg');
+							const pgClient = new Client({ connectionString: teableDbUrl });
+							await pgClient.connect();
 
-						const signinResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signin`, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ email, password: storedPassword })
-						});
+							// Delete user from Teable's user table
+							const deleteResult = await pgClient.query(
+								'DELETE FROM "user" WHERE email = $1 RETURNING id, email',
+								[email]
+							);
+							await pgClient.end();
 
-						if (signinResponse.ok) {
-							const signinCookie = signinResponse.headers.get('set-cookie');
-							sessionCookie = signinCookie?.match(/auth_session=([^;]+)/)?.[0] || null;
-							password = storedPassword; // Keep using stored password
-							console.log('Signin successful with stored password');
+							if (deleteResult.rowCount && deleteResult.rowCount > 0) {
+								console.log('Deleted existing Teable user:', email);
+
+								// Retry signup
+								const retryResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signup`, {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									body: JSON.stringify({
+										email,
+										password,
+										defaultSpaceName: name ? `${name}'s Workspace` : 'My Workspace'
+									})
+								});
+
+								if (retryResponse.ok) {
+									const setCookieHeader = retryResponse.headers.get('set-cookie');
+									sessionCookie = setCookieHeader?.match(/auth_session=([^;]+)/)?.[0] || null;
+									console.log('Successfully created Teable account after deleting existing user');
+								} else {
+									const retryErr = await retryResponse.json().catch(() => ({}));
+									throw new Error(retryErr.message || 'Failed to create Teable account after cleanup');
+								}
+							} else {
+								throw new Error('User exists in Teable but could not be deleted');
+							}
+						} catch (dbError) {
+							console.error('Failed to delete existing Teable user:', dbError);
+							throw new Error(`User ${email} already exists in Teable. Database cleanup failed.`);
 						}
-					}
+					} else {
+						// No database URL - try signin with stored password or send reset email
+						console.log('No TEABLE_DATABASE_URL configured, trying alternative methods...');
 
-					// If no stored password or signin failed, try with new password via password reset
-					if (!sessionCookie) {
-						console.log('No stored password or signin failed. Attempting to send password reset...');
-
-						// Try to trigger password reset
-						const resetResponse = await fetch(`${TEABLE_RM_URL}/api/auth/send-reset-password-email`, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							body: JSON.stringify({ email })
-						});
-
-						if (resetResponse.ok) {
-							res.status(400).json({
-								error: 'User already exists in Teable. A password reset email has been sent. Please check email and reset password, then try again.',
-								needsPasswordReset: true,
-								email
+						const existingCustomer = await getCustomerByMcpKey(mcpKey);
+						if (existingCustomer?.encrypted_password) {
+							const storedPassword = decryptToken(existingCustomer.encrypted_password);
+							const signinResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signin`, {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ email, password: storedPassword })
 							});
-							return;
+
+							if (signinResponse.ok) {
+								const signinCookie = signinResponse.headers.get('set-cookie');
+								sessionCookie = signinCookie?.match(/auth_session=([^;]+)/)?.[0] || null;
+								password = storedPassword;
+								isExistingUser = true;
+							}
 						}
 
-						// If reset also failed, return error
-						res.status(400).json({
-							error: `User ${email} already exists in Teable but password is unknown. Please contact admin to reset the Teable account.`,
-							existingUser: true
-						});
-						return;
+						if (!sessionCookie) {
+							throw new Error(`User ${email} already exists in Teable. Configure TEABLE_DATABASE_URL for automatic cleanup.`);
+						}
 					}
 				} else {
 					console.error('Teable signup failed:', errData);
