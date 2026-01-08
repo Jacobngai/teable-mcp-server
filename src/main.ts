@@ -1506,6 +1506,125 @@ async function startHttpServer() {
 		}
 	});
 
+	// Create a free account manually (for demos/testing)
+	app.post('/api/admin/create-free-account', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { name, email } = req.body;
+
+			if (!name || !email) {
+				res.status(400).json({ error: 'Name and email are required' });
+				return;
+			}
+
+			// Check if customer already exists
+			const existingCustomers = await getCustomersByEmail(email);
+			if (existingCustomers.length > 0) {
+				res.status(400).json({ error: 'Customer with this email already exists' });
+				return;
+			}
+
+			// Step 1: Create customer record (like webhook does)
+			const customer = await createCustomerWithStripe(
+				name,
+				email,
+				'', // No Stripe customer ID for free accounts
+				'manual_' + Date.now(), // Fake session ID
+				'free', // Free tier for manual accounts
+				50000 // 50k record limit for free
+			);
+
+			console.log('Admin created free account:', email, 'by', req.adminUser?.email);
+
+			// Step 2: Auto-provision Teable account
+			const TEABLE_RM_URL = 'https://table.resultmarketing.asia';
+			const password = generateSecurePassword();
+
+			try {
+				// Create Teable user
+				const signupResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signup`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ email, password })
+				});
+
+				if (!signupResponse.ok) {
+					const errorData = await signupResponse.json().catch(() => ({}));
+					throw new Error(errorData.message || 'Teable signup failed');
+				}
+
+				// Sign in to get access token
+				const signinResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signin`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ email, password })
+				});
+
+				if (!signinResponse.ok) {
+					throw new Error('Teable signin failed');
+				}
+
+				const signinData = await signinResponse.json();
+				const accessToken = signinData.access_token?.token;
+
+				if (!accessToken) {
+					throw new Error('No access token received');
+				}
+
+				// Save encrypted token
+				const encryptedToken = encryptToken(accessToken);
+				await updateCustomerToken(customer.mcp_key, encryptedToken, TEABLE_RM_URL);
+
+				// Save password hash and encrypted password
+				const passwordHash = hashPassword(password);
+				const encryptedPassword = encryptToken(password);
+				await updateCustomerPasswordHash(customer.mcp_key, passwordHash, encryptedPassword);
+
+				console.log('Teable account provisioned for free account:', email);
+
+				// Return credentials
+				res.json({
+					success: true,
+					customer: {
+						id: customer.id,
+						name: customer.name,
+						email: customer.email,
+						mcp_key: customer.mcp_key,
+						tier: customer.tier,
+						status: 'active'
+					},
+					credentials: {
+						teable_url: TEABLE_RM_URL,
+						email: email,
+						password: password
+					},
+					dashboard_url: `https://www.resultmarketing.asia/dashboard.html?mcp_key=${customer.mcp_key}&pwd=${encodeURIComponent(password)}`
+				});
+
+			} catch (provisionError) {
+				// If provisioning fails, still return customer info but with error
+				console.error('Teable provisioning failed for free account:', provisionError);
+				res.json({
+					success: false,
+					customer: {
+						id: customer.id,
+						name: customer.name,
+						email: customer.email,
+						mcp_key: customer.mcp_key,
+						tier: customer.tier,
+						status: 'pending'
+					},
+					error: 'Account created but Teable provisioning failed. Use manual provisioning.',
+					provisionError: provisionError instanceof Error ? provisionError.message : 'Unknown error'
+				});
+			}
+
+		} catch (error: unknown) {
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+			console.error('Failed to create free account:', errorMessage);
+			res.status(500).json({ error: 'Failed to create account', details: errorMessage });
+		}
+	});
+
 	// Manually trigger Teable provisioning for a customer
 	app.post('/api/admin/provision-teable/:mcpKey', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
