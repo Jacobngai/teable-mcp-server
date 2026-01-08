@@ -1544,7 +1544,11 @@ async function startHttpServer() {
 				const signupResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signup`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ email, password })
+					body: JSON.stringify({
+						email,
+						password,
+						defaultSpaceName: name ? `${name}'s Workspace` : 'My Workspace'
+					})
 				});
 
 				if (!signupResponse.ok) {
