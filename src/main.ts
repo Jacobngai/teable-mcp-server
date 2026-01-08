@@ -1269,14 +1269,29 @@ async function startHttpServer() {
 						console.log('Customer already exists for email:', customerEmail, '- skipping creation');
 						// Still acknowledge webhook but don't create duplicate
 					} else {
-						// Create customer in teable_customers (pro tier since they paid)
+						// Determine tier based on price paid
+						let customerTier = 'base';
+						let customerRecordLimit = 250000;
+
+						// Get the price ID from line items
+						const lineItems = await getStripe().checkout.sessions.listLineItems(session.id);
+						const priceId = lineItems.data[0]?.price?.id;
+
+						if (priceId === PRICE_ENTERPRISE) {
+							customerTier = 'enterprise';
+							customerRecordLimit = 500000;
+						}
+
+						console.log(`Creating customer with tier: ${customerTier}, limit: ${customerRecordLimit}, priceId: ${priceId}`);
+
+						// Create customer in teable_customers
 						const teableCustomer = await createCustomerWithStripe(
 							customerName,
 							customerEmail,
 							session.customer as string || '',
 							session.id,
-							'pro',
-							250000
+							customerTier,
+							customerRecordLimit
 						);
 
 						// Send welcome email
