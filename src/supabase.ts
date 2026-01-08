@@ -142,6 +142,23 @@ export async function listCustomers(): Promise<TeableCustomer[]> {
 	return data as TeableCustomer[];
 }
 
+export async function deleteCustomer(id: string): Promise<TeableCustomer | null> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('teable_customers')
+		.delete()
+		.eq('id', id)
+		.select()
+		.single();
+
+	if (error) {
+		throw new Error(`Failed to delete customer: ${error.message}`);
+	}
+
+	return data as TeableCustomer;
+}
+
 export async function getCustomersByEmail(email: string): Promise<TeableCustomer[]> {
 	const client = getSupabaseClient();
 

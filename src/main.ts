@@ -26,7 +26,8 @@ import {
 	createCustomer,
 	updateCustomerToken,
 	markOnboardingComplete,
-	listCustomers
+	listCustomers,
+	deleteCustomer
 } from './supabase.js';
 import { decryptToken, encryptToken } from './encryption.js';
 import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
@@ -1440,6 +1441,20 @@ async function startHttpServer() {
 		} catch (error) {
 			console.error('Failed to get customer:', error);
 			res.status(500).json({ error: 'Failed to fetch customer' });
+		}
+	});
+
+	// Delete a customer
+	app.delete('/api/admin/customers/:id', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { id } = req.params;
+			const deleted = await deleteCustomer(id);
+
+			console.log('Customer deleted by admin:', deleted?.email, 'by', req.adminUser?.email);
+			res.json({ success: true, deleted });
+		} catch (error) {
+			console.error('Failed to delete customer:', error);
+			res.status(500).json({ error: 'Failed to delete customer' });
 		}
 	});
 
