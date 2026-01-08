@@ -1600,15 +1600,26 @@ async function startHttpServer() {
 		}
 	});
 
-	// Create a free account manually (for demos/testing)
-	app.post('/api/admin/create-free-account', requireAdmin, async (req: AdminRequest, res: Response) => {
+	// Create account manually with tier selection (same flow as Stripe webhook)
+	app.post('/api/admin/create-account', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
-			const { name, email } = req.body;
+			const { name, email, tier = 'free' } = req.body;
 
 			if (!name || !email) {
 				res.status(400).json({ error: 'Name and email are required' });
 				return;
 			}
+
+			// Validate tier and get record limit
+			const tierConfig: Record<string, number> = {
+				'free': 50000,
+				'base': 100000,
+				'pro': 250000,
+				'enterprise': 500000
+			};
+
+			const validTier = tierConfig[tier] ? tier : 'free';
+			const recordLimit = tierConfig[validTier];
 
 			// Check if customer already exists
 			const existingCustomers = await getCustomersByEmail(email);
@@ -1617,17 +1628,17 @@ async function startHttpServer() {
 				return;
 			}
 
-			// Step 1: Create customer record (like webhook does)
+			// Step 1: Create customer record (same as Stripe webhook does)
 			const customer = await createCustomerWithStripe(
 				name,
 				email,
-				'', // No Stripe customer ID for free accounts
-				'manual_' + Date.now(), // Fake session ID
-				'free', // Free tier for manual accounts
-				50000 // 50k record limit for free
+				'', // No Stripe customer ID for admin-created accounts
+				'admin_' + Date.now(), // Admin session ID
+				validTier,
+				recordLimit
 			);
 
-			console.log('Admin created free account:', email, 'by', req.adminUser?.email);
+			console.log(`Admin created ${validTier} account:`, email, 'by', req.adminUser?.email);
 
 			// Step 2: Auto-provision Teable account
 			const TEABLE_RM_URL = 'https://table.resultmarketing.asia';
@@ -1750,6 +1761,7 @@ async function startHttpServer() {
 			res.status(500).json({ error: 'Failed to create account', details: errorMessage });
 		}
 	});
+
 
 	// Manually trigger Teable provisioning for a customer
 	app.post('/api/admin/provision-teable/:mcpKey', requireAdmin, async (req: AdminRequest, res: Response) => {
