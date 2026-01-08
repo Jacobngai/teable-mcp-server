@@ -1552,22 +1552,50 @@ async function startHttpServer() {
 					throw new Error(errorData.message || 'Teable signup failed');
 				}
 
-				// Sign in to get access token
-				const signinResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signin`, {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ email, password })
-				});
+				// Get the auth session cookie from signup response
+				const setCookieHeader = signupResponse.headers.get('set-cookie');
+				const sessionCookie = setCookieHeader?.match(/auth_session=([^;]+)/)?.[0];
 
-				if (!signinResponse.ok) {
-					throw new Error('Teable signin failed');
+				if (!sessionCookie) {
+					throw new Error('Failed to get session after signup');
 				}
 
-				const signinData = await signinResponse.json();
-				const accessToken = signinData.access_token?.token;
+				console.log('Free account created, generating access token...');
+
+				// Create access token using session cookie
+				const tokenResponse = await fetch(`${TEABLE_RM_URL}/api/access-token`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Cookie': sessionCookie
+					},
+					body: JSON.stringify({
+						name: 'AI Connector',
+						description: 'Auto-generated for Result Marketing AI Connector',
+						scopes: [
+							'table|read', 'table|create', 'table|update', 'table|delete',
+							'record|read', 'record|create', 'record|update', 'record|delete',
+							'view|read', 'view|create', 'view|update', 'view|delete',
+							'field|read', 'field|create', 'field|update', 'field|delete',
+							'base|read', 'base|create', 'base|update', 'base|delete',
+							'space|read', 'space|create', 'space|update', 'space|delete'
+						],
+						hasFullAccess: true,
+						expiredTime: '2028-01-01'
+					})
+				});
+
+				if (!tokenResponse.ok) {
+					const errData = await tokenResponse.json().catch(() => ({}));
+					console.error('Token creation failed:', errData);
+					throw new Error(errData.message || 'Failed to create access token');
+				}
+
+				const tokenData = await tokenResponse.json();
+				const accessToken = tokenData.token;
 
 				if (!accessToken) {
-					throw new Error('No access token received');
+					throw new Error('No access token in response');
 				}
 
 				// Save encrypted token
