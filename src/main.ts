@@ -564,11 +564,13 @@ async function startHttpServer() {
 			}
 
 			// Generate a secure random password
-			const password = generateSecurePassword();
+			let password = generateSecurePassword();
+			let sessionCookie: string | null = null;
+			let isExistingUser = false;
 
 			console.log('Creating Teable account for:', email);
 
-			// Step 1: Create account on Teable
+			// Step 1: Try to create account on Teable
 			const signupResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signup`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -581,19 +583,76 @@ async function startHttpServer() {
 
 			if (!signupResponse.ok) {
 				const errData = await signupResponse.json().catch(() => ({}));
-				console.error('Teable signup failed:', errData);
-				throw new Error(errData.message || 'Failed to create Teable account');
-			}
+				const errorMessage = errData.message || '';
 
-			// Get the auth session cookie from signup response
-			const setCookieHeader = signupResponse.headers.get('set-cookie');
-			const sessionCookie = setCookieHeader?.match(/auth_session=([^;]+)/)?.[0];
+				// Check if user already exists - try to signin instead
+				if (errorMessage.includes('already registered') || errorMessage.includes('already exists')) {
+					console.log('User already exists in Teable, checking for stored password...');
+					isExistingUser = true;
+
+					// Check if we have stored password for this user
+					const existingCustomer = await getCustomerByMcpKey(mcpKey);
+					if (existingCustomer?.encrypted_password) {
+						// Use stored password to signin
+						const storedPassword = decryptToken(existingCustomer.encrypted_password);
+						console.log('Found stored password, attempting signin...');
+
+						const signinResponse = await fetch(`${TEABLE_RM_URL}/api/auth/signin`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ email, password: storedPassword })
+						});
+
+						if (signinResponse.ok) {
+							const signinCookie = signinResponse.headers.get('set-cookie');
+							sessionCookie = signinCookie?.match(/auth_session=([^;]+)/)?.[0] || null;
+							password = storedPassword; // Keep using stored password
+							console.log('Signin successful with stored password');
+						}
+					}
+
+					// If no stored password or signin failed, try with new password via password reset
+					if (!sessionCookie) {
+						console.log('No stored password or signin failed. Attempting to send password reset...');
+
+						// Try to trigger password reset
+						const resetResponse = await fetch(`${TEABLE_RM_URL}/api/auth/send-reset-password-email`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ email })
+						});
+
+						if (resetResponse.ok) {
+							res.status(400).json({
+								error: 'User already exists in Teable. A password reset email has been sent. Please check email and reset password, then try again.',
+								needsPasswordReset: true,
+								email
+							});
+							return;
+						}
+
+						// If reset also failed, return error
+						res.status(400).json({
+							error: `User ${email} already exists in Teable but password is unknown. Please contact admin to reset the Teable account.`,
+							existingUser: true
+						});
+						return;
+					}
+				} else {
+					console.error('Teable signup failed:', errData);
+					throw new Error(errData.message || 'Failed to create Teable account');
+				}
+			} else {
+				// Get the auth session cookie from signup response
+				const setCookieHeader = signupResponse.headers.get('set-cookie');
+				sessionCookie = setCookieHeader?.match(/auth_session=([^;]+)/)?.[0] || null;
+			}
 
 			if (!sessionCookie) {
-				throw new Error('Failed to get session after signup');
+				throw new Error('Failed to get session after signup/signin');
 			}
 
-			console.log('Account created, generating access token...');
+			console.log(isExistingUser ? 'Signed in to existing account' : 'Account created', ', generating access token...');
 
 			// Step 2: Create access token
 			const tokenResponse = await fetch(`${TEABLE_RM_URL}/api/access-token`, {
