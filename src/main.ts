@@ -31,8 +31,23 @@ import {
 	updateLeadStatus,
 	getLeadStats,
 	listCustomers,
-	deleteCustomer
+	deleteCustomer,
+	// WhatsApp functions
+	getCustomersWithRemindersEnabled,
+	updateCustomerWhatsApp,
+	setReminderEnabled,
+	getCustomerWhatsAppStatus
 } from './supabase.js';
+// WhatsApp module imports
+import {
+	createSession,
+	getConnectionStatus,
+	disconnectSession,
+	sendReminderToSelf,
+	getRemindersStatus,
+	initializeWhatsAppService,
+	getCronStatus
+} from './whatsapp/index.js';
 import { decryptToken, encryptToken } from './encryption.js';
 import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
@@ -1899,6 +1914,306 @@ async function startHttpServer() {
 		}
 	});
 
+	// ============ WHATSAPP API ENDPOINTS ============
+
+	// Start WhatsApp connection (returns QR code)
+	app.post('/api/whatsapp/:mcpKey/connect', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			if (customer.status !== 'active') {
+				res.status(403).json({ error: 'Account not active' });
+				return;
+			}
+
+			console.log(`[WhatsApp API] Connect request for: ${customer.email}`);
+
+			// Create session and wait for QR code or connection
+			let qrCode: string | null = null;
+			let connected = false;
+			let phone: string | null = null;
+
+			const sessionPromise = new Promise<void>((resolve) => {
+				createSession(
+					mcpKey,
+					(qr) => {
+						qrCode = qr;
+						resolve();
+					},
+					(isConnected, phoneNumber) => {
+						connected = isConnected;
+						phone = phoneNumber || null;
+						if (isConnected && phoneNumber) {
+							// Update database with connection info
+							updateCustomerWhatsApp(mcpKey, phoneNumber, true).catch(console.error);
+						}
+						resolve();
+					}
+				);
+			});
+
+			// Wait up to 10 seconds for QR code or connection
+			await Promise.race([
+				sessionPromise,
+				new Promise(resolve => setTimeout(resolve, 10000))
+			]);
+
+			// Check current status
+			const status = getConnectionStatus(mcpKey);
+
+			if (status.connected) {
+				res.json({
+					status: 'connected',
+					phone: status.phoneNumber,
+					message: 'WhatsApp already connected'
+				});
+			} else if (status.qrCode) {
+				res.json({
+					status: 'pending',
+					qrCode: status.qrCode,
+					message: 'Scan QR code with WhatsApp'
+				});
+			} else if (status.connecting) {
+				res.json({
+					status: 'connecting',
+					message: 'Connecting to WhatsApp...'
+				});
+			} else {
+				res.json({
+					status: 'error',
+					error: status.lastError || 'Failed to start connection'
+				});
+			}
+		} catch (error) {
+			console.error('[WhatsApp API] Connect error:', error);
+			res.status(500).json({ error: 'Failed to connect WhatsApp' });
+		}
+	});
+
+	// Get WhatsApp connection status
+	app.get('/api/whatsapp/:mcpKey/status', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			// Get session status
+			const sessionStatus = getConnectionStatus(mcpKey);
+
+			// Get database status
+			const dbStatus = await getCustomerWhatsAppStatus(mcpKey);
+
+			res.json({
+				connected: sessionStatus.connected,
+				connecting: sessionStatus.connecting,
+				phone: sessionStatus.phoneNumber || dbStatus?.whatsapp_phone || null,
+				qrCode: sessionStatus.qrCode,
+				lastError: sessionStatus.lastError,
+				reminderEnabled: dbStatus?.reminder_enabled || false,
+				lastConnected: dbStatus?.whatsapp_last_connected || null
+			});
+		} catch (error) {
+			console.error('[WhatsApp API] Status error:', error);
+			res.status(500).json({ error: 'Failed to get status' });
+		}
+	});
+
+	// Get current QR code (if pending)
+	app.get('/api/whatsapp/:mcpKey/qr', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			const status = getConnectionStatus(mcpKey);
+
+			if (status.connected) {
+				res.json({ status: 'connected', phone: status.phoneNumber });
+			} else if (status.qrCode) {
+				res.json({ status: 'pending', qrCode: status.qrCode });
+			} else if (status.connecting) {
+				res.json({ status: 'connecting' });
+			} else {
+				res.json({ status: 'disconnected' });
+			}
+		} catch (error) {
+			console.error('[WhatsApp API] QR error:', error);
+			res.status(500).json({ error: 'Failed to get QR code' });
+		}
+	});
+
+	// Disconnect WhatsApp
+	app.post('/api/whatsapp/:mcpKey/disconnect', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			console.log(`[WhatsApp API] Disconnect request for: ${customer.email}`);
+
+			// Disconnect session
+			await disconnectSession(mcpKey);
+
+			// Update database
+			await updateCustomerWhatsApp(mcpKey, null, false);
+			await setReminderEnabled(mcpKey, false);
+
+			res.json({ success: true, message: 'WhatsApp disconnected' });
+		} catch (error) {
+			console.error('[WhatsApp API] Disconnect error:', error);
+			res.status(500).json({ error: 'Failed to disconnect WhatsApp' });
+		}
+	});
+
+	// Send test message to self
+	app.post('/api/whatsapp/:mcpKey/test', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			// Check if connected
+			const status = getConnectionStatus(mcpKey);
+			if (!status.connected) {
+				res.status(400).json({ error: 'WhatsApp not connected' });
+				return;
+			}
+
+			console.log(`[WhatsApp API] Test message for: ${customer.email}`);
+
+			// Send test message
+			const testMessage = `This is a test message from Result Marketing AI Connector.\n\nTimestamp: ${new Date().toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`;
+			await sendReminderToSelf(mcpKey, testMessage);
+
+			res.json({ success: true, message: 'Test message sent' });
+		} catch (error) {
+			console.error('[WhatsApp API] Test message error:', error);
+			res.status(500).json({ error: 'Failed to send test message' });
+		}
+	});
+
+	// Get reminders table status
+	app.get('/api/whatsapp/:mcpKey/reminders/status', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			if (!customer.encrypted_token) {
+				res.status(400).json({ error: 'Teable not configured' });
+				return;
+			}
+
+			// Get reminders table status
+			const reminderStatus = await getRemindersStatus(
+				customer.encrypted_token,
+				customer.teable_base_url
+			);
+
+			// Get reminder enabled status from database
+			const dbStatus = await getCustomerWhatsAppStatus(mcpKey);
+
+			res.json({
+				...reminderStatus,
+				reminderEnabled: dbStatus?.reminder_enabled || false
+			});
+		} catch (error) {
+			console.error('[WhatsApp API] Reminders status error:', error);
+			res.status(500).json({ error: 'Failed to get reminders status' });
+		}
+	});
+
+	// Enable reminders
+	app.post('/api/whatsapp/:mcpKey/reminders/enable', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			// Check if WhatsApp is connected
+			const status = getConnectionStatus(mcpKey);
+			if (!status.connected) {
+				res.status(400).json({ error: 'WhatsApp must be connected to enable reminders' });
+				return;
+			}
+
+			console.log(`[WhatsApp API] Enable reminders for: ${customer.email}`);
+
+			// Enable reminders
+			await setReminderEnabled(mcpKey, true);
+
+			res.json({ success: true, message: 'Reminders enabled' });
+		} catch (error) {
+			console.error('[WhatsApp API] Enable reminders error:', error);
+			res.status(500).json({ error: 'Failed to enable reminders' });
+		}
+	});
+
+	// Disable reminders
+	app.post('/api/whatsapp/:mcpKey/reminders/disable', async (req: Request, res: Response) => {
+		try {
+			const { mcpKey } = req.params;
+
+			// Validate customer
+			const customer = await getCustomerByMcpKey(mcpKey);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			console.log(`[WhatsApp API] Disable reminders for: ${customer.email}`);
+
+			// Disable reminders
+			await setReminderEnabled(mcpKey, false);
+
+			res.json({ success: true, message: 'Reminders disabled' });
+		} catch (error) {
+			console.error('[WhatsApp API] Disable reminders error:', error);
+			res.status(500).json({ error: 'Failed to disable reminders' });
+		}
+	});
+
+	// Get WhatsApp service status (admin only)
+	app.get('/api/admin/whatsapp/status', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const cronStatus = getCronStatus();
+			res.json(cronStatus);
+		} catch (error) {
+			console.error('[WhatsApp API] Admin status error:', error);
+			res.status(500).json({ error: 'Failed to get WhatsApp service status' });
+		}
+	});
+
 	// ============ MCP ENDPOINTS ============
 
 	// SSE endpoint for MCP connections
@@ -2063,13 +2378,26 @@ async function startHttpServer() {
 		}
 	});
 
-	app.listen(PORT, () => {
+	app.listen(PORT, async () => {
 		console.log(`Teable MCP Server running on http://localhost:${PORT}`);
 		console.log('Endpoints:');
 		console.log(`  Health: GET /health`);
 		console.log(`  Admin API: POST/GET /api/customers`);
 		console.log(`  MCP SSE: GET /mcp/:mcpKey/sse`);
 		console.log(`  MCP Messages: POST /mcp/:mcpKey/messages`);
+		console.log(`  WhatsApp API: /api/whatsapp/:mcpKey/*`);
+
+		// Initialize WhatsApp service if enabled
+		if (process.env.WHATSAPP_ENABLED === 'true') {
+			console.log('WhatsApp service enabled, initializing...');
+			try {
+				await initializeWhatsAppService();
+			} catch (error) {
+				console.error('Failed to initialize WhatsApp service:', error);
+			}
+		} else {
+			console.log('WhatsApp service disabled (set WHATSAPP_ENABLED=true to enable)');
+		}
 	});
 }
 

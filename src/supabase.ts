@@ -516,3 +516,106 @@ export async function getLeadStats(): Promise<{
 		converted: data.filter(l => l.status === 'converted').length
 	};
 }
+
+// ============ WHATSAPP FUNCTIONS ============
+
+/**
+ * Get all customers with reminders enabled and WhatsApp connected
+ */
+export async function getCustomersWithRemindersEnabled(): Promise<TeableCustomer[]> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('teable_customers')
+		.select('*')
+		.eq('status', 'active')
+		.eq('reminder_enabled', true)
+		.eq('whatsapp_connected', true)
+		.not('encrypted_token', 'is', null);
+
+	if (error) {
+		console.error('Failed to get customers with reminders enabled:', error.message);
+		return [];
+	}
+
+	return (data || []) as TeableCustomer[];
+}
+
+/**
+ * Update customer WhatsApp connection status
+ */
+export async function updateCustomerWhatsApp(
+	mcpKey: string,
+	phone: string | null,
+	connected: boolean
+): Promise<void> {
+	const client = getSupabaseClient();
+
+	const updateData: Record<string, unknown> = {
+		whatsapp_connected: connected,
+		whatsapp_phone: phone
+	};
+
+	if (connected) {
+		updateData.whatsapp_last_connected = new Date().toISOString();
+	}
+
+	const { error } = await client
+		.from('teable_customers')
+		.update(updateData)
+		.eq('mcp_key', mcpKey);
+
+	if (error) {
+		throw new Error(`Failed to update WhatsApp status: ${error.message}`);
+	}
+}
+
+/**
+ * Set reminder enabled status for a customer
+ */
+export async function setReminderEnabled(
+	mcpKey: string,
+	enabled: boolean
+): Promise<void> {
+	const client = getSupabaseClient();
+
+	const { error } = await client
+		.from('teable_customers')
+		.update({ reminder_enabled: enabled })
+		.eq('mcp_key', mcpKey);
+
+	if (error) {
+		throw new Error(`Failed to update reminder status: ${error.message}`);
+	}
+}
+
+/**
+ * Get WhatsApp status for a customer
+ */
+export async function getCustomerWhatsAppStatus(
+	mcpKey: string
+): Promise<{
+	whatsapp_connected: boolean;
+	whatsapp_phone: string | null;
+	whatsapp_last_connected: string | null;
+	reminder_enabled: boolean;
+} | null> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('teable_customers')
+		.select('whatsapp_connected, whatsapp_phone, whatsapp_last_connected, reminder_enabled')
+		.eq('mcp_key', mcpKey)
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	return {
+		whatsapp_connected: data.whatsapp_connected || false,
+		whatsapp_phone: data.whatsapp_phone || null,
+		whatsapp_last_connected: data.whatsapp_last_connected || null,
+		reminder_enabled: data.reminder_enabled || false
+	};
+}
