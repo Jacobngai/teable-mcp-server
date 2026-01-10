@@ -4,7 +4,7 @@
  */
 
 import { decryptToken } from '../encryption.js';
-import { sendReminderToSelf, isConnected } from './sessionManager.js';
+// Note: This service is now legacy - new admin system uses admin reminder queue
 
 // Teable API base URL (default)
 const DEFAULT_TEABLE_URL = 'https://table.resultmarketing.asia';
@@ -324,68 +324,8 @@ export async function markReminderFailed(
 export async function processCustomerReminders(
 	customer: WhatsAppCustomer
 ): Promise<{ sent: number; failed: number }> {
-	const result = { sent: 0, failed: 0 };
-
-	// Check if WhatsApp is connected for this customer
-	if (!isConnected(customer.mcp_key)) {
-		console.log(`[Reminders] Skipping ${customer.email} - WhatsApp not connected`);
-		return result;
-	}
-
-	try {
-		// Decrypt the Teable access token
-		const accessToken = decryptToken(customer.encrypted_token);
-		const baseUrl = customer.teable_base_url || DEFAULT_TEABLE_URL;
-
-		// Find the Reminders table
-		const tableInfo = await findRemindersTable(baseUrl, accessToken);
-		if (!tableInfo) {
-			console.log(`[Reminders] No Reminders table for ${customer.email}`);
-			return result;
-		}
-
-		// Get due reminders
-		const reminders = await getDueReminders(baseUrl, accessToken, tableInfo.tableId);
-		if (reminders.length === 0) {
-			return result;
-		}
-
-		console.log(`[Reminders] Processing ${reminders.length} reminders for ${customer.email}`);
-
-		// Send each reminder
-		for (const reminder of reminders) {
-			const message = reminder.fields[FIELD_MESSAGE];
-
-			if (!message) {
-				console.log(`[Reminders] Skipping reminder ${reminder.id} - no message`);
-				continue;
-			}
-
-			try {
-				// Send the reminder to self
-				await sendReminderToSelf(customer.mcp_key, message);
-
-				// Mark as sent
-				await markReminderSent(baseUrl, accessToken, tableInfo.tableId, reminder.id);
-				result.sent++;
-
-				console.log(`[Reminders] Sent reminder to ${customer.email}: ${message.substring(0, 50)}...`);
-
-				// Small delay between messages to avoid rate limits
-				await new Promise(resolve => setTimeout(resolve, 1000));
-			} catch (error) {
-				console.error(`[Reminders] Failed to send reminder ${reminder.id}:`, error);
-
-				// Mark as failed
-				await markReminderFailed(baseUrl, accessToken, tableInfo.tableId, reminder.id);
-				result.failed++;
-			}
-		}
-	} catch (error) {
-		console.error(`[Reminders] Error processing reminders for ${customer.email}:`, error);
-	}
-
-	return result;
+	console.warn('[Reminders] processCustomerReminders is deprecated. Use admin reminder system instead.');
+	return { sent: 0, failed: 0 };
 }
 
 /**

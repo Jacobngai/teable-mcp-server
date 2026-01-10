@@ -625,3 +625,361 @@ export async function getCustomerWhatsAppStatus(
 		reminder_enabled: data.reminder_enabled || false
 	};
 }
+
+// ============ ADMIN WHATSAPP FUNCTIONS ============
+
+/**
+ * Admin WhatsApp Configuration Interface
+ */
+export interface AdminWhatsAppConfig {
+	id: string;
+	phone_number: string | null;
+	connected: boolean;
+	last_connected: string | null;
+	last_error: string | null;
+	connection_attempts: number;
+	session_data: any;
+	qr_code_generated_at: string | null;
+	admin_user_id: string | null;
+	created_at: string;
+	updated_at: string;
+}
+
+/**
+ * Admin Message Interface
+ */
+export interface AdminMessage {
+	id: string;
+	customer_id: string;
+	customer_phone: string;
+	customer_name: string | null;
+	message_text: string;
+	sent_at: string;
+	status: 'sent' | 'failed' | 'pending';
+	error_message: string | null;
+	admin_user_id: string | null;
+	admin_phone: string | null;
+}
+
+/**
+ * Admin Reminder Queue Interface
+ */
+export interface AdminReminderQueue {
+	id: string;
+	customer_id: string;
+	customer_phone: string;
+	customer_name: string | null;
+	reminder_text: string;
+	scheduled_for: string;
+	status: 'pending' | 'sent' | 'failed' | 'cancelled';
+	attempts: number;
+	last_attempt_at: string | null;
+	error_message: string | null;
+	created_at: string;
+	sent_at: string | null;
+}
+
+/**
+ * Get admin WhatsApp configuration
+ */
+export async function getAdminWhatsAppConfig(): Promise<AdminWhatsAppConfig | null> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_whatsapp_config')
+		.select('*')
+		.single();
+
+	if (error || !data) {
+		return null;
+	}
+
+	return data as AdminWhatsAppConfig;
+}
+
+/**
+ * Update admin WhatsApp configuration
+ */
+export async function updateAdminWhatsAppConfig(
+	phoneNumber: string | null,
+	connected: boolean,
+	lastError: string | null = null,
+	connectionAttempts: number = 0,
+	sessionData: any = null
+): Promise<AdminWhatsAppConfig> {
+	const client = getSupabaseClient();
+
+	const updateData: any = {
+		phone_number: phoneNumber,
+		connected,
+		connection_attempts: connectionAttempts
+	};
+
+	if (connected) {
+		updateData.last_connected = new Date().toISOString();
+		updateData.last_error = null;
+	} else {
+		updateData.last_error = lastError;
+	}
+
+	if (sessionData) {
+		updateData.session_data = sessionData;
+	}
+
+	// First try to update existing record
+	const { data: updatedData, error: updateError } = await client
+		.from('admin_whatsapp_config')
+		.update(updateData)
+		.select()
+		.single();
+
+	if (updateError || !updatedData) {
+		// If no record exists, create one
+		const { data: insertedData, error: insertError } = await client
+			.from('admin_whatsapp_config')
+			.insert({
+				...updateData,
+				id: crypto.randomUUID()
+			})
+			.select()
+			.single();
+
+		if (insertError || !insertedData) {
+			throw new Error(`Failed to create admin WhatsApp config: ${insertError?.message}`);
+		}
+
+		return insertedData as AdminWhatsAppConfig;
+	}
+
+	return updatedData as AdminWhatsAppConfig;
+}
+
+/**
+ * Update QR code generation timestamp
+ */
+export async function updateAdminQRCodeGenerated(): Promise<void> {
+	const client = getSupabaseClient();
+
+	const { error } = await client
+		.from('admin_whatsapp_config')
+		.update({ qr_code_generated_at: new Date().toISOString() })
+		.single();
+
+	if (error) {
+		console.error('Failed to update QR code timestamp:', error.message);
+	}
+}
+
+/**
+ * Log admin message sent to customer
+ */
+export async function logAdminMessage(
+	customerId: string,
+	customerPhone: string,
+	customerName: string | null,
+	messageText: string,
+	status: 'sent' | 'failed' | 'pending' = 'sent',
+	errorMessage: string | null = null,
+	adminUserId: string | null = null,
+	adminPhone: string | null = null
+): Promise<AdminMessage> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_messages')
+		.insert({
+			customer_id: customerId,
+			customer_phone: customerPhone,
+			customer_name: customerName,
+			message_text: messageText,
+			status,
+			error_message: errorMessage,
+			admin_user_id: adminUserId,
+			admin_phone: adminPhone
+		})
+		.select()
+		.single();
+
+	if (error || !data) {
+		throw new Error(`Failed to log admin message: ${error?.message}`);
+	}
+
+	return data as AdminMessage;
+}
+
+/**
+ * Get admin message history for a customer
+ */
+export async function getAdminMessagesForCustomer(
+	customerId: string,
+	limit: number = 50
+): Promise<AdminMessage[]> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_messages')
+		.select('*')
+		.eq('customer_id', customerId)
+		.order('sent_at', { ascending: false })
+		.limit(limit);
+
+	if (error) {
+		throw new Error(`Failed to get admin messages: ${error.message}`);
+	}
+
+	return (data || []) as AdminMessage[];
+}
+
+/**
+ * Get recent admin messages (for admin dashboard)
+ */
+export async function getRecentAdminMessages(limit: number = 100): Promise<AdminMessage[]> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_messages')
+		.select('*')
+		.order('sent_at', { ascending: false })
+		.limit(limit);
+
+	if (error) {
+		throw new Error(`Failed to get recent admin messages: ${error.message}`);
+	}
+
+	return (data || []) as AdminMessage[];
+}
+
+/**
+ * Queue a reminder for a customer
+ */
+export async function queueAdminReminder(
+	customerId: string,
+	customerPhone: string,
+	customerName: string | null,
+	reminderText: string,
+	scheduledFor: Date
+): Promise<AdminReminderQueue> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('admin_reminder_queue')
+		.insert({
+			customer_id: customerId,
+			customer_phone: customerPhone,
+			customer_name: customerName,
+			reminder_text: reminderText,
+			scheduled_for: scheduledFor.toISOString()
+		})
+		.select()
+		.single();
+
+	if (error || !data) {
+		throw new Error(`Failed to queue admin reminder: ${error?.message}`);
+	}
+
+	return data as AdminReminderQueue;
+}
+
+/**
+ * Get pending reminders to be sent
+ */
+export async function getPendingAdminReminders(): Promise<AdminReminderQueue[]> {
+	const client = getSupabaseClient();
+
+	const now = new Date().toISOString();
+
+	const { data, error } = await client
+		.from('admin_reminder_queue')
+		.select('*')
+		.eq('status', 'pending')
+		.lte('scheduled_for', now)
+		.order('scheduled_for', { ascending: true });
+
+	if (error) {
+		throw new Error(`Failed to get pending reminders: ${error.message}`);
+	}
+
+	return (data || []) as AdminReminderQueue[];
+}
+
+/**
+ * Update reminder status after sending attempt
+ */
+export async function updateAdminReminderStatus(
+	reminderId: string,
+	status: 'sent' | 'failed' | 'cancelled',
+	errorMessage: string | null = null
+): Promise<void> {
+	const client = getSupabaseClient();
+
+	const updateData: any = {
+		status,
+		last_attempt_at: new Date().toISOString()
+	};
+
+	if (status === 'sent') {
+		updateData.sent_at = new Date().toISOString();
+	} else if (status === 'failed') {
+		updateData.error_message = errorMessage;
+	}
+
+	// Increment attempts counter
+	const { error: updateError } = await client
+		.from('admin_reminder_queue')
+		.update({
+			...updateData,
+			attempts: client.rpc('increment_attempts', { reminder_id: reminderId })
+		})
+		.eq('id', reminderId);
+
+	// If RPC doesn't work, fall back to direct update
+	if (updateError) {
+		const { error } = await client
+			.from('admin_reminder_queue')
+			.update(updateData)
+			.eq('id', reminderId);
+
+		if (error) {
+			throw new Error(`Failed to update reminder status: ${error.message}`);
+		}
+	}
+}
+
+/**
+ * Get customers who have opted in for WhatsApp reminders
+ */
+export async function getCustomersForAdminReminders(): Promise<TeableCustomer[]> {
+	const client = getSupabaseClient();
+
+	const { data, error } = await client
+		.from('teable_customers')
+		.select('*')
+		.eq('reminder_enabled', true)
+		.eq('status', 'active')
+		.not('whatsapp_phone', 'is', null);
+
+	if (error) {
+		throw new Error(`Failed to get customers for reminders: ${error.message}`);
+	}
+
+	return (data || []) as TeableCustomer[];
+}
+
+/**
+ * Update customer's WhatsApp phone number
+ */
+export async function updateCustomerWhatsAppPhone(
+	mcpKey: string,
+	phoneNumber: string | null
+): Promise<void> {
+	const client = getSupabaseClient();
+
+	const { error } = await client
+		.from('teable_customers')
+		.update({ whatsapp_phone: phoneNumber })
+		.eq('mcp_key', mcpKey);
+
+	if (error) {
+		throw new Error(`Failed to update customer WhatsApp phone: ${error.message}`);
+	}
+}

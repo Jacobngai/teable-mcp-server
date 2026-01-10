@@ -38,16 +38,31 @@ import {
 	setReminderEnabled,
 	getCustomerWhatsAppStatus
 } from './supabase.js';
-// WhatsApp module imports
+// Admin WhatsApp module imports
+import { adminSessionManager } from './whatsapp/adminSessionManager.js';
+
+// Note: Admin reminder service will be implemented in future version
+// import {
+// 	initializeAdminReminderService,
+// 	shutdownAdminReminderService,
+// 	getAdminReminderCronStatus,
+// 	triggerAdminReminderProcessing
+// } from './whatsapp/adminReminderService.js';
+
+// Admin database functions
 import {
-	createSession,
-	getConnectionStatus,
-	disconnectSession,
-	sendReminderToSelf,
-	getRemindersStatus,
-	initializeWhatsAppService,
-	getCronStatus
-} from './whatsapp/index.js';
+	getAdminWhatsAppConfig,
+	updateAdminWhatsAppConfig,
+	logAdminMessage,
+	getAdminMessagesForCustomer,
+	getRecentAdminMessages,
+	queueAdminReminder,
+	getPendingAdminReminders,
+	updateAdminReminderStatus,
+	getCustomersForAdminReminders,
+	updateCustomerWhatsAppPhone,
+	updateAdminQRCodeGenerated
+} from './supabase.js';
 import { decryptToken, encryptToken } from './encryption.js';
 import { randomUUID, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import Stripe from 'stripe';
@@ -1914,12 +1929,414 @@ async function startHttpServer() {
 		}
 	});
 
-	// ============ WHATSAPP API ENDPOINTS ============
+	// ============ ADMIN WHATSAPP API ENDPOINTS ============
 
-	// Start WhatsApp connection (returns QR code)
-	app.post('/api/whatsapp/:mcpKey/connect', async (req: Request, res: Response) => {
+	// Start admin WhatsApp connection (admin only)
+	app.post('/api/admin/whatsapp/connect', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			console.log(`[Admin WhatsApp] Connect request by admin: ${req.adminUser?.email}`);
+
+			// Create session and wait for QR code or connection
+			let qrCode: string | null = null;
+			let connected = false;
+			let phoneNumber: string | null = null;
+			let error: string | null = null;
+
+			// Setup callbacks
+			const qrUnsubscribe = onQRCode((qr) => {
+				qrCode = qr;
+				updateAdminQRCodeGenerated().catch(console.error);
+			});
+
+			const connectionUnsubscribe = onConnectionChange((isConnected, phone, err) => {
+				connected = isConnected;
+				phoneNumber = phone || null;
+				error = err || null;
+
+				// Update database with admin WhatsApp status
+				updateAdminWhatsAppConfig(
+					phoneNumber,
+					isConnected,
+					error,
+					isConnected ? 0 : undefined
+				).catch(console.error);
+			});
+
+			try {
+				// Create admin session
+				await createAdminSession();
+
+				// Wait up to 15 seconds for QR code or connection
+				await new Promise(resolve => setTimeout(resolve, 15000));
+
+				// Get current status
+				const status = getAdminConnectionStatus();
+
+				if (status.connected) {
+					res.json({
+						status: 'connected',
+						phone: status.phoneNumber,
+						message: 'Admin WhatsApp connected successfully'
+					});
+				} else if (status.qrCode) {
+					res.json({
+						status: 'pending',
+						qrCode: status.qrCode,
+						message: 'Scan QR code with admin WhatsApp account'
+					});
+				} else if (status.connecting) {
+					res.json({
+						status: 'connecting',
+						message: 'Connecting to WhatsApp...'
+					});
+				} else {
+					res.json({
+						status: 'error',
+						error: status.lastError || 'Failed to start admin WhatsApp connection'
+					});
+				}
+			} finally {
+				// Cleanup callbacks
+				qrUnsubscribe();
+				connectionUnsubscribe();
+			}
+		} catch (error) {
+			console.error('[Admin WhatsApp] Connect error:', error);
+			res.status(500).json({ error: 'Failed to connect admin WhatsApp' });
+		}
+	});
+
+	// Get admin WhatsApp connection status (admin only)
+	app.get('/api/admin/whatsapp/status', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			// Get session status
+			const sessionStatus = getAdminConnectionStatus();
+
+			// Get database status
+			const dbConfig = await getAdminWhatsAppConfig();
+
+			res.json({
+				connected: sessionStatus.connected,
+				connecting: sessionStatus.connecting,
+				phone: sessionStatus.phoneNumber || dbConfig?.phone_number || null,
+				qrCode: sessionStatus.qrCode,
+				lastError: sessionStatus.lastError || dbConfig?.last_error || null,
+				lastConnected: sessionStatus.lastConnected || dbConfig?.last_connected || null,
+				connectionAttempts: sessionStatus.connectionAttempts
+			});
+		} catch (error) {
+			console.error('[Admin WhatsApp] Status error:', error);
+			res.status(500).json({ error: 'Failed to get admin WhatsApp status' });
+		}
+	});
+
+	// Get current admin QR code (admin only)
+	app.get('/api/admin/whatsapp/qr', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const status = getAdminConnectionStatus();
+
+			if (status.connected) {
+				res.json({ status: 'connected', phone: status.phoneNumber });
+			} else if (status.qrCode) {
+				res.json({ status: 'pending', qrCode: status.qrCode });
+			} else if (status.connecting) {
+				res.json({ status: 'connecting' });
+			} else {
+				res.json({ status: 'disconnected' });
+			}
+		} catch (error) {
+			console.error('[Admin WhatsApp] QR error:', error);
+			res.status(500).json({ error: 'Failed to get admin QR code' });
+		}
+	});
+
+	// Disconnect admin WhatsApp (admin only)
+	app.post('/api/admin/whatsapp/disconnect', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			console.log(`[Admin WhatsApp] Disconnect request by admin: ${req.adminUser?.email}`);
+
+			// Disconnect admin session
+			await disconnectAdminSession();
+
+			// Update database
+			await updateAdminWhatsAppConfig(null, false, 'Manually disconnected by admin');
+
+			res.json({ success: true, message: 'Admin WhatsApp disconnected' });
+		} catch (error) {
+			console.error('[Admin WhatsApp] Disconnect error:', error);
+			res.status(500).json({ error: 'Failed to disconnect admin WhatsApp' });
+		}
+	});
+
+	// Send admin test message (admin only)
+	app.post('/api/admin/whatsapp/test', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			// Check if admin WhatsApp is connected
+			if (!isAdminConnected()) {
+				res.status(400).json({ error: 'Admin WhatsApp not connected' });
+				return;
+			}
+
+			console.log(`[Admin WhatsApp] Test message by admin: ${req.adminUser?.email}`);
+
+			// Send test message to admin's own number
+			const testMessage = `Admin WhatsApp test message.\n\nSent by: ${req.adminUser?.name || req.adminUser?.email || 'Admin'}\nTimestamp: ${new Date().toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`;
+			await sendAdminTestMessage(testMessage);
+
+			res.json({ success: true, message: 'Test message sent to admin WhatsApp' });
+		} catch (error) {
+			console.error('[Admin WhatsApp] Test message error:', error);
+			res.status(500).json({ error: 'Failed to send admin test message' });
+		}
+	});
+
+	// Send message to customer (admin only)
+	app.post('/api/admin/whatsapp/send-message', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { customerId, message, customerPhone, customerName } = req.body;
+
+			if (!customerId && !customerPhone) {
+				res.status(400).json({ error: 'customerId or customerPhone is required' });
+				return;
+			}
+
+			if (!message) {
+				res.status(400).json({ error: 'message is required' });
+				return;
+			}
+
+			// Check if admin WhatsApp is connected
+			if (!isAdminConnected()) {
+				res.status(400).json({ error: 'Admin WhatsApp not connected' });
+				return;
+			}
+
+			let customer = null;
+			let finalCustomerPhone = customerPhone;
+			let finalCustomerName = customerName;
+
+			// Get customer details if customerId provided
+			if (customerId) {
+				customer = await getCustomerById(customerId);
+				if (!customer) {
+					res.status(404).json({ error: 'Customer not found' });
+					return;
+				}
+				finalCustomerPhone = customerPhone || customer.whatsapp_phone;
+				finalCustomerName = customerName || customer.name;
+			}
+
+			if (!finalCustomerPhone) {
+				res.status(400).json({ error: 'Customer phone number is required' });
+				return;
+			}
+
+			console.log(`[Admin WhatsApp] Sending message to customer: ${finalCustomerPhone} by admin: ${req.adminUser?.email}`);
+
+			// Send message via admin WhatsApp
+			await sendAdminMessage(finalCustomerPhone, message, finalCustomerName);
+
+			// Log the message
+			await logAdminMessage(
+				customer?.id || customerId,
+				finalCustomerPhone,
+				finalCustomerName,
+				message,
+				'sent',
+				null,
+				req.adminUser?.id,
+				getAdminPhoneNumber()
+			);
+
+			res.json({
+				success: true,
+				message: 'Message sent successfully',
+				sentTo: {
+					phone: finalCustomerPhone,
+					name: finalCustomerName
+				}
+			});
+		} catch (error) {
+			console.error('[Admin WhatsApp] Send message error:', error);
+
+			// Log failed message if we have the details
+			try {
+				const { customerId, customerPhone, customerName, message } = req.body;
+				if (customerId && message) {
+					await logAdminMessage(
+						customerId,
+						customerPhone || 'unknown',
+						customerName || null,
+						message,
+						'failed',
+						error instanceof Error ? error.message : 'Unknown error',
+						req.adminUser?.id,
+						getAdminPhoneNumber()
+					);
+				}
+			} catch (logError) {
+				console.error('[Admin WhatsApp] Failed to log error message:', logError);
+			}
+
+			res.status(500).json({ error: 'Failed to send message to customer' });
+		}
+	});
+
+	// Get message history for a customer (admin only)
+	app.get('/api/admin/whatsapp/messages/:customerId', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { customerId } = req.params;
+			const limit = parseInt(req.query.limit as string) || 50;
+
+			const messages = await getAdminMessagesForCustomer(customerId, limit);
+
+			res.json({ messages });
+		} catch (error) {
+			console.error('[Admin WhatsApp] Get messages error:', error);
+			res.status(500).json({ error: 'Failed to get message history' });
+		}
+	});
+
+	// Get recent admin messages (admin only)
+	app.get('/api/admin/whatsapp/messages', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const limit = parseInt(req.query.limit as string) || 100;
+
+			const messages = await getRecentAdminMessages(limit);
+
+			res.json({ messages });
+		} catch (error) {
+			console.error('[Admin WhatsApp] Get recent messages error:', error);
+			res.status(500).json({ error: 'Failed to get recent messages' });
+		}
+	});
+
+	// Update customer WhatsApp phone number (admin only)
+	app.post('/api/admin/customers/:id/whatsapp-phone', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { id } = req.params;
+			const { phoneNumber } = req.body;
+
+			const customer = await getCustomerById(id);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			console.log(`[Admin WhatsApp] Updating customer ${customer.email} WhatsApp phone: ${phoneNumber} by admin: ${req.adminUser?.email}`);
+
+			await updateCustomerWhatsAppPhone(customer.mcp_key, phoneNumber);
+
+			res.json({ success: true, message: 'Customer WhatsApp phone updated' });
+		} catch (error) {
+			console.error('[Admin WhatsApp] Update customer phone error:', error);
+			res.status(500).json({ error: 'Failed to update customer WhatsApp phone' });
+		}
+	});
+
+	// Get customers eligible for WhatsApp reminders (admin only)
+	app.get('/api/admin/whatsapp/customers', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const customers = await getCustomersForAdminReminders();
+
+			res.json({
+				customers: customers.map(c => ({
+					id: c.id,
+					name: c.name,
+					email: c.email,
+					whatsapp_phone: c.whatsapp_phone,
+					reminder_enabled: c.reminder_enabled
+				}))
+			});
+		} catch (error) {
+			console.error('[Admin WhatsApp] Get customers error:', error);
+			res.status(500).json({ error: 'Failed to get customers for WhatsApp' });
+		}
+	});
+
+	// Get admin reminder service status (admin only)
+	app.get('/api/admin/whatsapp/reminders/status', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const status = getAdminReminderCronStatus();
+			res.json(status);
+		} catch (error) {
+			console.error('[Admin WhatsApp] Get reminder status error:', error);
+			res.status(500).json({ error: 'Failed to get reminder service status' });
+		}
+	});
+
+	// Manually trigger reminder processing (admin only)
+	app.post('/api/admin/whatsapp/reminders/trigger', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			console.log(`[Admin WhatsApp] Manual reminder trigger by admin: ${req.adminUser?.email}`);
+			
+			const stats = await triggerAdminReminderProcessing();
+			
+			res.json({
+				success: true,
+				message: 'Reminder processing triggered',
+				stats
+			});
+		} catch (error) {
+			console.error('[Admin WhatsApp] Trigger reminders error:', error);
+			res.status(500).json({ error: 'Failed to trigger reminder processing' });
+		}
+	});
+
+	// Queue a reminder for a customer (admin only)
+	app.post('/api/admin/whatsapp/queue-reminder', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { customerId, reminderText, scheduledFor } = req.body;
+
+			if (!customerId || !reminderText) {
+				res.status(400).json({ error: 'customerId and reminderText are required' });
+				return;
+			}
+
+			// Get customer details
+			const customer = await getCustomerById(customerId);
+			if (!customer) {
+				res.status(404).json({ error: 'Customer not found' });
+				return;
+			}
+
+			if (!customer.whatsapp_phone) {
+				res.status(400).json({ error: 'Customer does not have a WhatsApp phone number' });
+				return;
+			}
+
+			// Parse scheduled time (default to immediate if not provided)
+			const scheduledDate = scheduledFor ? new Date(scheduledFor) : new Date();
+
+			console.log(`[Admin WhatsApp] Queueing reminder for customer ${customer.email} by admin: ${req.adminUser?.email}`);
+
+			// Queue the reminder
+			const queuedReminder = await queueAdminReminder(
+				customer.id,
+				customer.whatsapp_phone,
+				customer.name,
+				reminderText,
+				scheduledDate
+			);
+
+			res.json({
+				success: true,
+				message: 'Reminder queued successfully',
+				reminder: queuedReminder
+			});
+		} catch (error) {
+			console.error('[Admin WhatsApp] Queue reminder error:', error);
+			res.status(500).json({ error: 'Failed to queue reminder' });
+		}
+	});
+
+	// ============ CUSTOMER WHATSAPP PHONE UPDATE ============
+
+	// Update own WhatsApp phone number (customer endpoint)
+	app.post('/api/customers/:mcpKey/whatsapp-phone', async (req: Request, res: Response) => {
 		try {
 			const { mcpKey } = req.params;
+			const { phoneNumber } = req.body;
 
 			// Validate customer
 			const customer = await getCustomerByMcpKey(mcpKey);
@@ -1933,74 +2350,26 @@ async function startHttpServer() {
 				return;
 			}
 
-			console.log(`[WhatsApp API] Connect request for: ${customer.email}`);
+			console.log(`[Customer] Updating WhatsApp phone for: ${customer.email} to ${phoneNumber}`);
 
-			// Create session and wait for QR code or connection
-			let qrCode: string | null = null;
-			let connected = false;
-			let phone: string | null = null;
+			await updateCustomerWhatsAppPhone(mcpKey, phoneNumber);
 
-			const sessionPromise = new Promise<void>((resolve) => {
-				createSession(
-					mcpKey,
-					(qr) => {
-						qrCode = qr;
-						resolve();
-					},
-					(isConnected, phoneNumber) => {
-						connected = isConnected;
-						phone = phoneNumber || null;
-						if (isConnected && phoneNumber) {
-							// Update database with connection info
-							updateCustomerWhatsApp(mcpKey, phoneNumber, true).catch(console.error);
-						}
-						resolve();
-					}
-				);
-			});
-
-			// Wait up to 10 seconds for QR code or connection
-			await Promise.race([
-				sessionPromise,
-				new Promise(resolve => setTimeout(resolve, 10000))
-			]);
-
-			// Check current status
-			const status = getConnectionStatus(mcpKey);
-
-			if (status.connected) {
-				res.json({
-					status: 'connected',
-					phone: status.phoneNumber,
-					message: 'WhatsApp already connected'
-				});
-			} else if (status.qrCode) {
-				res.json({
-					status: 'pending',
-					qrCode: status.qrCode,
-					message: 'Scan QR code with WhatsApp'
-				});
-			} else if (status.connecting) {
-				res.json({
-					status: 'connecting',
-					message: 'Connecting to WhatsApp...'
-				});
-			} else {
-				res.json({
-					status: 'error',
-					error: status.lastError || 'Failed to start connection'
-				});
-			}
+			res.json({ success: true, message: 'WhatsApp phone number updated' });
 		} catch (error) {
-			console.error('[WhatsApp API] Connect error:', error);
-			res.status(500).json({ error: 'Failed to connect WhatsApp' });
+			console.error('[Customer] Update WhatsApp phone error:', error);
+			res.status(500).json({ error: 'Failed to update WhatsApp phone number' });
 		}
 	});
 
-	// Get WhatsApp connection status
-	app.get('/api/whatsapp/:mcpKey/status', async (req: Request, res: Response) => {
+	// Enable/disable reminders (customer endpoint)
+	app.post('/api/customers/:mcpKey/reminders/:action', async (req: Request, res: Response) => {
 		try {
-			const { mcpKey } = req.params;
+			const { mcpKey, action } = req.params;
+
+			if (action !== 'enable' && action !== 'disable') {
+				res.status(400).json({ error: 'Action must be enable or disable' });
+				return;
+			}
 
 			// Validate customer
 			const customer = await getCustomerByMcpKey(mcpKey);
@@ -2009,51 +2378,36 @@ async function startHttpServer() {
 				return;
 			}
 
-			// Get session status
-			const sessionStatus = getConnectionStatus(mcpKey);
+			if (customer.status !== 'active') {
+				res.status(403).json({ error: 'Account not active' });
+				return;
+			}
 
-			// Get database status
-			const dbStatus = await getCustomerWhatsAppStatus(mcpKey);
+			const enabled = action === 'enable';
+			
+			// Check if customer has WhatsApp phone number
+			if (enabled && !customer.whatsapp_phone) {
+				res.status(400).json({ error: 'WhatsApp phone number must be set before enabling reminders' });
+				return;
+			}
+
+			console.log(`[Customer] ${enabled ? 'Enabling' : 'Disabling'} reminders for: ${customer.email}`);
+
+			await setReminderEnabled(mcpKey, enabled);
 
 			res.json({
-				connected: sessionStatus.connected,
-				connecting: sessionStatus.connecting,
-				phone: sessionStatus.phoneNumber || dbStatus?.whatsapp_phone || null,
-				qrCode: sessionStatus.qrCode,
-				lastError: sessionStatus.lastError,
-				reminderEnabled: dbStatus?.reminder_enabled || false,
-				lastConnected: dbStatus?.whatsapp_last_connected || null
+				success: true,
+				message: `Reminders ${enabled ? 'enabled' : 'disabled'}`,
+				reminder_enabled: enabled
 			});
 		} catch (error) {
-			console.error('[WhatsApp API] Status error:', error);
-			res.status(500).json({ error: 'Failed to get status' });
+			console.error(`[Customer] ${req.params.action} reminders error:`, error);
+			res.status(500).json({ error: `Failed to ${req.params.action} reminders` });
 		}
 	});
 
-	// Get current QR code (if pending)
-	app.get('/api/whatsapp/:mcpKey/qr', async (req: Request, res: Response) => {
-		try {
-			const { mcpKey } = req.params;
-
-			const status = getConnectionStatus(mcpKey);
-
-			if (status.connected) {
-				res.json({ status: 'connected', phone: status.phoneNumber });
-			} else if (status.qrCode) {
-				res.json({ status: 'pending', qrCode: status.qrCode });
-			} else if (status.connecting) {
-				res.json({ status: 'connecting' });
-			} else {
-				res.json({ status: 'disconnected' });
-			}
-		} catch (error) {
-			console.error('[WhatsApp API] QR error:', error);
-			res.status(500).json({ error: 'Failed to get QR code' });
-		}
-	});
-
-	// Disconnect WhatsApp
-	app.post('/api/whatsapp/:mcpKey/disconnect', async (req: Request, res: Response) => {
+	// Get customer WhatsApp status
+	app.get('/api/customers/:mcpKey/whatsapp/status', async (req: Request, res: Response) => {
 		try {
 			const { mcpKey } = req.params;
 
@@ -2064,153 +2418,23 @@ async function startHttpServer() {
 				return;
 			}
 
-			console.log(`[WhatsApp API] Disconnect request for: ${customer.email}`);
+			// Get admin WhatsApp status
+			const adminConnected = isAdminConnected();
+			const adminPhone = getAdminPhoneNumber();
 
-			// Disconnect session
-			await disconnectSession(mcpKey);
-
-			// Update database
-			await updateCustomerWhatsApp(mcpKey, null, false);
-			await setReminderEnabled(mcpKey, false);
-
-			res.json({ success: true, message: 'WhatsApp disconnected' });
-		} catch (error) {
-			console.error('[WhatsApp API] Disconnect error:', error);
-			res.status(500).json({ error: 'Failed to disconnect WhatsApp' });
-		}
-	});
-
-	// Send test message to self
-	app.post('/api/whatsapp/:mcpKey/test', async (req: Request, res: Response) => {
-		try {
-			const { mcpKey } = req.params;
-
-			// Validate customer
-			const customer = await getCustomerByMcpKey(mcpKey);
-			if (!customer) {
-				res.status(404).json({ error: 'Customer not found' });
-				return;
-			}
-
-			// Check if connected
-			const status = getConnectionStatus(mcpKey);
-			if (!status.connected) {
-				res.status(400).json({ error: 'WhatsApp not connected' });
-				return;
-			}
-
-			console.log(`[WhatsApp API] Test message for: ${customer.email}`);
-
-			// Send test message
-			const testMessage = `This is a test message from Result Marketing AI Connector.\n\nTimestamp: ${new Date().toLocaleString('en-MY', { timeZone: 'Asia/Kuala_Lumpur' })}`;
-			await sendReminderToSelf(mcpKey, testMessage);
-
-			res.json({ success: true, message: 'Test message sent' });
-		} catch (error) {
-			console.error('[WhatsApp API] Test message error:', error);
-			res.status(500).json({ error: 'Failed to send test message' });
-		}
-	});
-
-	// Get reminders table status
-	app.get('/api/whatsapp/:mcpKey/reminders/status', async (req: Request, res: Response) => {
-		try {
-			const { mcpKey } = req.params;
-
-			// Validate customer
-			const customer = await getCustomerByMcpKey(mcpKey);
-			if (!customer) {
-				res.status(404).json({ error: 'Customer not found' });
-				return;
-			}
-
-			if (!customer.encrypted_token) {
-				res.status(400).json({ error: 'Teable not configured' });
-				return;
-			}
-
-			// Get reminders table status
-			const reminderStatus = await getRemindersStatus(
-				customer.encrypted_token,
-				customer.teable_base_url
-			);
-
-			// Get reminder enabled status from database
-			const dbStatus = await getCustomerWhatsAppStatus(mcpKey);
+			// Get customer WhatsApp settings
+			const customerStatus = await getCustomerWhatsAppStatus(mcpKey);
 
 			res.json({
-				...reminderStatus,
-				reminderEnabled: dbStatus?.reminder_enabled || false
+				admin_connected: adminConnected,
+				admin_phone: adminPhone,
+				customer_phone: customerStatus?.whatsapp_phone || null,
+				reminder_enabled: customerStatus?.reminder_enabled || false,
+				can_receive_messages: adminConnected && customerStatus?.whatsapp_phone
 			});
 		} catch (error) {
-			console.error('[WhatsApp API] Reminders status error:', error);
-			res.status(500).json({ error: 'Failed to get reminders status' });
-		}
-	});
-
-	// Enable reminders
-	app.post('/api/whatsapp/:mcpKey/reminders/enable', async (req: Request, res: Response) => {
-		try {
-			const { mcpKey } = req.params;
-
-			// Validate customer
-			const customer = await getCustomerByMcpKey(mcpKey);
-			if (!customer) {
-				res.status(404).json({ error: 'Customer not found' });
-				return;
-			}
-
-			// Check if WhatsApp is connected
-			const status = getConnectionStatus(mcpKey);
-			if (!status.connected) {
-				res.status(400).json({ error: 'WhatsApp must be connected to enable reminders' });
-				return;
-			}
-
-			console.log(`[WhatsApp API] Enable reminders for: ${customer.email}`);
-
-			// Enable reminders
-			await setReminderEnabled(mcpKey, true);
-
-			res.json({ success: true, message: 'Reminders enabled' });
-		} catch (error) {
-			console.error('[WhatsApp API] Enable reminders error:', error);
-			res.status(500).json({ error: 'Failed to enable reminders' });
-		}
-	});
-
-	// Disable reminders
-	app.post('/api/whatsapp/:mcpKey/reminders/disable', async (req: Request, res: Response) => {
-		try {
-			const { mcpKey } = req.params;
-
-			// Validate customer
-			const customer = await getCustomerByMcpKey(mcpKey);
-			if (!customer) {
-				res.status(404).json({ error: 'Customer not found' });
-				return;
-			}
-
-			console.log(`[WhatsApp API] Disable reminders for: ${customer.email}`);
-
-			// Disable reminders
-			await setReminderEnabled(mcpKey, false);
-
-			res.json({ success: true, message: 'Reminders disabled' });
-		} catch (error) {
-			console.error('[WhatsApp API] Disable reminders error:', error);
-			res.status(500).json({ error: 'Failed to disable reminders' });
-		}
-	});
-
-	// Get WhatsApp service status (admin only)
-	app.get('/api/admin/whatsapp/status', requireAdmin, async (req: AdminRequest, res: Response) => {
-		try {
-			const cronStatus = getCronStatus();
-			res.json(cronStatus);
-		} catch (error) {
-			console.error('[WhatsApp API] Admin status error:', error);
-			res.status(500).json({ error: 'Failed to get WhatsApp service status' });
+			console.error('[Customer] WhatsApp status error:', error);
+			res.status(500).json({ error: 'Failed to get WhatsApp status' });
 		}
 	});
 
@@ -2387,16 +2611,18 @@ async function startHttpServer() {
 		console.log(`  MCP Messages: POST /mcp/:mcpKey/messages`);
 		console.log(`  WhatsApp API: /api/whatsapp/:mcpKey/*`);
 
-		// Initialize WhatsApp service if enabled
+		// Initialize Admin WhatsApp service if enabled
 		if (process.env.WHATSAPP_ENABLED === 'true') {
-			console.log('WhatsApp service enabled, initializing...');
+			console.log('Admin WhatsApp service enabled, initializing...');
 			try {
-				await initializeWhatsAppService();
+				await restoreAdminSession();
+				await initializeAdminReminderService();
+				console.log('Admin WhatsApp service initialized successfully');
 			} catch (error) {
-				console.error('Failed to initialize WhatsApp service:', error);
+				console.error('Failed to initialize Admin WhatsApp service:', error);
 			}
 		} else {
-			console.log('WhatsApp service disabled (set WHATSAPP_ENABLED=true to enable)');
+			console.log('Admin WhatsApp service disabled (set WHATSAPP_ENABLED=true to enable)');
 		}
 	});
 }

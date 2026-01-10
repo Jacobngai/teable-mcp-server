@@ -1,26 +1,38 @@
 /**
- * WhatsApp Module Index
- * Exports all WhatsApp-related functionality
+ * Admin WhatsApp Module Index
+ * Exports admin-controlled WhatsApp functionality
+ * Replaces the old per-customer session system
  */
 
-// Session management
+// Admin session management
 export {
-	createSession,
-	getSessionState,
-	getConnectionStatus,
-	isConnected,
-	getQRCode,
-	getPhoneNumber,
-	disconnectSession,
-	sendMessage,
-	sendReminderToSelf,
-	restoreSessions,
-	getActiveSessionIds,
-	cleanupAllSessions,
-	SessionState
-} from './sessionManager.js';
+	createAdminSession,
+	getAdminSessionState,
+	getAdminConnectionStatus,
+	isAdminConnected,
+	getAdminQRCode,
+	getAdminPhoneNumber,
+	disconnectAdminSession,
+	sendAdminMessage,
+	sendAdminTestMessage,
+	restoreAdminSession,
+	cleanupAdminSession,
+	onQRCode,
+	onConnectionChange,
+	AdminSessionState
+} from './adminSessionManager.js';
 
-// Reminder service
+// Admin reminder service
+export {
+	startAdminReminderCron,
+	stopAdminReminderCron,
+	triggerAdminReminderProcessing,
+	getAdminReminderCronStatus,
+	initializeAdminReminderService,
+	shutdownAdminReminderService
+} from './adminReminderService.js';
+
+// Legacy reminder service (kept for potential future use with admin system)
 export {
 	findRemindersTable,
 	validateRemindersTable,
@@ -33,13 +45,3 @@ export {
 	WhatsAppCustomer,
 	ReminderRecord
 } from './reminderService.js';
-
-// Cron job
-export {
-	startReminderCron,
-	stopReminderCron,
-	triggerReminderProcessing,
-	getCronStatus,
-	initializeWhatsAppService,
-	shutdownWhatsAppService
-} from './cron.js';
