@@ -1,10 +1,24 @@
 # Claude AI Assistant Instructions
 
-## CRITICAL: Git Configuration
+## CRITICAL: Git Configuration & Directory Structure
 - **ALWAYS** use email: ngsanzen@gmail.com
 - **ALWAYS** use name: ngsanzen
 - **BEFORE EVERY COMMIT** run: `git config user.email "ngsanzen@gmail.com" && git config user.name "ngsanzen"`
 - This is MANDATORY for all commits in this project
+
+## CRITICAL: Git Directory Structure
+- **Frontend commits**: MUST be made from `mcp-saas-frontend/` directory
+- **Backend commits**: MUST be made from `teable-mcp-server/` directory
+- **NEVER commit from parent directory** (`result marketing AI connector latest/`)
+- Each project has its own separate git repository:
+  - Frontend repo: https://github.com/Jacobngai/mcp-saas-frontend
+  - Backend repo: https://github.com/Jacobngai/teable-mcp-server
+
+## Git Workflow
+1. `cd` into the correct project directory first
+2. Set git config: `git config user.email "ngsanzen@gmail.com" && git config user.name "ngsanzen"`
+3. Make changes and commit
+4. Push to the correct repository
 
 ## Project Architecture
 
