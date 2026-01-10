@@ -2438,10 +2438,10 @@ async function startHttpServer() {
 		}
 	});
 
-	// ============ WORKING ADMIN WHATSAPP API ENDPOINTS ============
+	// ============ ADMIN WHATSAPP API ENDPOINTS ============
 
 	// Start admin WhatsApp connection (admin only)
-	app.post('/api/admin/whatsapp/connect-new', requireAdmin, async (req: AdminRequest, res: Response) => {
+	app.post('/api/admin/whatsapp/connect', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
 			console.log(`[Admin WhatsApp] Connect request by admin: ${req.adminUser?.email}`);
 
@@ -2481,7 +2481,7 @@ async function startHttpServer() {
 	});
 
 	// Get admin WhatsApp connection status (admin only)
-	app.get('/api/admin/whatsapp/status-new', requireAdmin, async (req: AdminRequest, res: Response) => {
+	app.get('/api/admin/whatsapp/status', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
 			const status = adminSessionManager.getStatus();
 
@@ -2504,7 +2504,7 @@ async function startHttpServer() {
 	});
 
 	// Get current admin QR code (admin only)
-	app.get('/api/admin/whatsapp/qr-new', requireAdmin, async (req: AdminRequest, res: Response) => {
+	app.get('/api/admin/whatsapp/qr', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
 			const status = adminSessionManager.getStatus();
 
@@ -2536,7 +2536,7 @@ async function startHttpServer() {
 	});
 
 	// Disconnect admin WhatsApp (admin only)
-	app.post('/api/admin/whatsapp/disconnect-new', requireAdmin, async (req: AdminRequest, res: Response) => {
+	app.post('/api/admin/whatsapp/disconnect', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
 			console.log(`[Admin WhatsApp] Disconnect request by admin: ${req.adminUser?.email}`);
 
@@ -2555,7 +2555,7 @@ async function startHttpServer() {
 	});
 
 	// Send admin test message (admin only)
-	app.post('/api/admin/whatsapp/test-new', requireAdmin, async (req: AdminRequest, res: Response) => {
+	app.post('/api/admin/whatsapp/test', requireAdmin, async (req: AdminRequest, res: Response) => {
 		try {
 			const status = adminSessionManager.getStatus();
 			
@@ -2587,6 +2587,43 @@ async function startHttpServer() {
 		} catch (error) {
 			console.error('[Admin WhatsApp] Test message error:', error);
 			res.status(500).json({ success: false, error: 'Failed to send admin test message' });
+		}
+	});
+
+	// Send message to customer phone (admin only)
+	app.post('/api/admin/whatsapp/send', requireAdmin, async (req: AdminRequest, res: Response) => {
+		try {
+			const { phoneNumber, message } = req.body;
+
+			if (!phoneNumber || !message) {
+				res.status(400).json({ success: false, error: 'phoneNumber and message are required' });
+				return;
+			}
+
+			const status = adminSessionManager.getStatus();
+			
+			if (!status.connected) {
+				res.status(400).json({ success: false, error: 'Admin WhatsApp not connected' });
+				return;
+			}
+
+			console.log(`[Admin WhatsApp] Send message by admin: ${req.adminUser?.email} to ${phoneNumber}`);
+
+			const result = await adminSessionManager.sendMessage(phoneNumber, message);
+
+			if (result.success) {
+				res.json({ 
+					success: true, 
+					message: 'Message sent successfully',
+					messageId: result.messageId
+				});
+			} else {
+				res.status(400).json({ success: false, error: result.error || 'Failed to send message' });
+			}
+
+		} catch (error) {
+			console.error('[Admin WhatsApp] Send message error:', error);
+			res.status(500).json({ success: false, error: 'Failed to send message to customer' });
 		}
 	});
 

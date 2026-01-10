@@ -611,6 +611,7 @@
             <button class="tab-btn" onclick="showTab('leads')">Leads</button>
             <button class="tab-btn" onclick="showTab('payments')">Stripe Payments</button>
             <button class="tab-btn" onclick="showTab('orphaned')">Orphaned Payments</button>
+            <button class="tab-btn" onclick="showTab('whatsapp')">WhatsApp Assistant</button>
             <button class="tab-btn" onclick="showTab('create')" style="background: #10b981; color: white; border-radius: 6px;">+ Create Account</button>
         </div>
 
@@ -676,6 +677,73 @@
                 </div>
                 <div id="orphanedTableContainer">
                     <div class="loading">Loading orphaned payments...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- WhatsApp Assistant Tab -->
+        <div class="tab-content" id="tab-whatsapp">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2>WhatsApp Assistant Management</h2>
+                </div>
+                
+                <!-- Assistant Status -->
+                <div style="padding: 2rem;">
+                    <div class="assistant-status" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+                            <div class="status-indicator" id="assistantIndicator" style="width: 12px; height: 12px; border-radius: 50%; background: #9ca3af;"></div>
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem;">Assistant Status</h3>
+                                <p style="margin: 0; color: #6b7280; font-size: 0.9rem;" id="assistantStatusText">Checking connection...</p>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn" id="connectAssistantBtn" onclick="connectAssistant()" style="background: #10b981; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer;">Connect Assistant</button>
+                            <button class="btn" id="disconnectAssistantBtn" onclick="disconnectAssistant()" style="background: #ef4444; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 6px; cursor: pointer; display: none;">Disconnect</button>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Section -->
+                    <div class="qr-section" id="assistantQrSection" style="display: none; text-align: center; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 8px; padding: 2rem; margin-bottom: 2rem;">
+                        <h3 style="margin-bottom: 1rem;">Scan QR Code with Assistant WhatsApp</h3>
+                        <img id="assistantQrCode" style="max-width: 250px; width: 100%; background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;" alt="Assistant QR Code">
+                        <div style="max-width: 400px; margin: 0 auto; text-align: left;">
+                            <p style="font-weight: 600; margin-bottom: 0.5rem; text-align: center;">Setup Instructions:</p>
+                            <ol style="color: #6b7280; font-size: 0.9rem; padding-left: 1.25rem;">
+                                <li>Open WhatsApp on the assistant phone</li>
+                                <li>Tap Menu ⋮ or Settings</li>
+                                <li>Tap Linked Devices</li>
+                                <li>Tap Link a Device</li>
+                                <li>Scan this QR code</li>
+                            </ol>
+                        </div>
+                        <button onclick="cancelAssistantConnect()" style="background: #6b7280; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; margin-top: 1rem;">Cancel</button>
+                    </div>
+
+                    <!-- Statistics -->
+                    <div class="assistant-stats" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem;">Assistant Statistics</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                            <div>
+                                <div style="font-size: 0.875rem; color: #6b7280;">Connected Customers</div>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: #111827;" id="customerCount">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.875rem; color: #6b7280;">Messages Sent Today</div>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: #111827;" id="messageCount">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.875rem; color: #6b7280;">Last Activity</div>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: #111827;" id="lastActivity">-</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.875rem; color: #6b7280;">Phone Number</div>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: #111827;" id="assistantPhone">-</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -872,6 +940,11 @@
                 loadPayments();
                 loadOrphaned();
                 loadLeads();
+                
+                // Load WhatsApp data if admin
+                if (adminData.role === 'admin' || adminData.role === 'super_admin') {
+                    loadCustomerPhones();
+                }
 
             } catch (err) {
                 console.error('Auth error:', err);
@@ -1508,6 +1581,175 @@
                 showToast('Dashboard link copied!', 'success');
             });
         }
+
+        // WhatsApp Assistant Management Functions
+        let assistantPollInterval = null;
+
+        async function checkAssistantStatus() {
+            try {
+                // Use new working admin endpoint
+                const response = await apiCall('/api/admin/whatsapp/status');
+                if (response.success) {
+                    updateAssistantUI(response.data);
+                } else {
+                    updateAssistantUI({ connected: false, status: 'disconnected' });
+                }
+            } catch (error) {
+                console.error('Error checking assistant status:', error);
+                updateAssistantUI({ connected: false, status: 'error', error: error.message });
+            }
+        }
+
+        function updateAssistantUI(data) {
+            const indicator = document.getElementById('assistantIndicator');
+            const statusText = document.getElementById('assistantStatusText');
+            const connectBtn = document.getElementById('connectAssistantBtn');
+            const disconnectBtn = document.getElementById('disconnectAssistantBtn');
+
+            if (data.connected) {
+                indicator.style.background = '#10b981';
+                statusText.textContent = 'Connected - ' + (data.phone || 'Assistant Active');
+                connectBtn.style.display = 'none';
+                disconnectBtn.style.display = 'inline-block';
+                
+                // Update stats
+                document.getElementById('assistantPhone').textContent = data.phone || '-';
+                document.getElementById('customerCount').textContent = data.customerCount || '-';
+                document.getElementById('messageCount').textContent = data.messagesCount || '-';
+                document.getElementById('lastActivity').textContent = data.lastActivity || '-';
+            } else if (data.status === 'connecting') {
+                indicator.style.background = '#f59e0b';
+                statusText.textContent = 'Connecting... Scan QR code below';
+                connectBtn.style.display = 'none';
+                disconnectBtn.style.display = 'none';
+            } else {
+                indicator.style.background = '#ef4444';
+                statusText.textContent = data.error ? 'Error: ' + data.error : 'Disconnected';
+                connectBtn.style.display = 'inline-block';
+                disconnectBtn.style.display = 'none';
+                
+                // Clear stats
+                document.getElementById('assistantPhone').textContent = '-';
+                document.getElementById('customerCount').textContent = '-';
+                document.getElementById('messageCount').textContent = '-';
+                document.getElementById('lastActivity').textContent = '-';
+            }
+        }
+
+        async function connectAssistant() {
+            const connectBtn = document.getElementById('connectAssistantBtn');
+            connectBtn.disabled = true;
+            connectBtn.textContent = 'Connecting...';
+
+            try {
+                const response = await apiCall('/api/admin/whatsapp/connect', { method: 'POST' });
+                
+                if (response.success) {
+                    if (response.status === 'connected') {
+                        updateAssistantUI({ connected: true, phone: response.data.phone });
+                        showToast('Assistant already connected!', 'success');
+                    } else if (response.status === 'pending' && response.data.qrCode) {
+                        document.getElementById('assistantQrCode').src = response.data.qrCode;
+                        document.getElementById('assistantQrSection').style.display = 'block';
+                        updateAssistantUI({ status: 'connecting' });
+                        startAssistantPolling();
+                    } else if (response.status === 'connecting') {
+                        updateAssistantUI({ status: 'connecting' });
+                        startAssistantPolling();
+                    }
+                } else {
+                    throw new Error(response.error || 'Failed to connect assistant');
+                }
+            } catch (error) {
+                console.error('Connect assistant error:', error);
+                showToast('Error: ' + error.message, 'error');
+                updateAssistantUI({ status: 'error', error: error.message });
+            } finally {
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect Assistant';
+            }
+        }
+
+        async function disconnectAssistant() {
+            if (!confirm('Are you sure you want to disconnect the WhatsApp assistant? This will stop all customer reminders.')) {
+                return;
+            }
+
+            const disconnectBtn = document.getElementById('disconnectAssistantBtn');
+            disconnectBtn.disabled = true;
+            disconnectBtn.textContent = 'Disconnecting...';
+
+            try {
+                const response = await apiCall('/api/admin/whatsapp/disconnect', { method: 'POST' });
+                
+                if (response.success) {
+                    updateAssistantUI({ connected: false, status: 'disconnected' });
+                    document.getElementById('assistantQrSection').style.display = 'none';
+                    stopAssistantPolling();
+                    showToast('Assistant disconnected successfully', 'success');
+                } else {
+                    throw new Error(response.error || 'Failed to disconnect assistant');
+                }
+            } catch (error) {
+                console.error('Disconnect assistant error:', error);
+                showToast('Error: ' + error.message, 'error');
+            } finally {
+                disconnectBtn.disabled = false;
+                disconnectBtn.textContent = 'Disconnect';
+            }
+        }
+
+        function startAssistantPolling() {
+            stopAssistantPolling(); // Clear any existing interval
+            assistantPollInterval = setInterval(async () => {
+                try {
+                    const response = await apiCall('/api/admin/whatsapp/qr');
+                    if (response.success) {
+                        if (response.data.status === 'connected') {
+                            stopAssistantPolling();
+                            document.getElementById('assistantQrSection').style.display = 'none';
+                            updateAssistantUI({ connected: true, phone: response.data.phone });
+                            showToast('Assistant connected successfully!', 'success');
+                        } else if (response.data.qrCode) {
+                            document.getElementById('assistantQrCode').src = response.data.qrCode;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 2000);
+            
+            // Stop polling after 2 minutes
+            setTimeout(() => {
+                if (assistantPollInterval) {
+                    stopAssistantPolling();
+                    showToast('Connection timeout. Please try again.', 'warning');
+                    cancelAssistantConnect();
+                }
+            }, 120000);
+        }
+
+        function stopAssistantPolling() {
+            if (assistantPollInterval) {
+                clearInterval(assistantPollInterval);
+                assistantPollInterval = null;
+            }
+        }
+
+        function cancelAssistantConnect() {
+            document.getElementById('assistantQrSection').style.display = 'none';
+            stopAssistantPolling();
+            updateAssistantUI({ connected: false, status: 'disconnected' });
+        }
+
+        // Enhanced showTab function to include WhatsApp status check
+        const originalShowTab = window.showTab;
+        window.showTab = function(tabName) {
+            originalShowTab(tabName);
+            if (tabName === 'whatsapp') {
+                checkAssistantStatus();
+            }
+        };
 
         // Initialize
         document.addEventListener('DOMContentLoaded', checkAuth);

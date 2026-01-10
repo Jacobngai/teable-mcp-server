@@ -325,40 +325,6 @@
             50% { opacity: 0.5; }
         }
 
-        /* ========== QR CODE SECTION ========== */
-        .qr-container {
-            text-align: center;
-            padding: 2rem;
-            background: var(--bg-section);
-            border-radius: 12px;
-            margin-bottom: 1.5rem;
-        }
-
-        .qr-container img {
-            max-width: 250px;
-            width: 100%;
-            height: auto;
-            border-radius: 8px;
-            background: white;
-            padding: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .qr-instructions {
-            text-align: left;
-            max-width: 400px;
-            margin: 1rem auto 0;
-        }
-
-        .qr-instructions ol {
-            padding-left: 1.25rem;
-            color: var(--text-light);
-            font-size: 0.9rem;
-        }
-
-        .qr-instructions li {
-            margin-bottom: 0.5rem;
-        }
 
         /* ========== REMINDERS SECTION ========== */
         .reminders-status {
@@ -414,63 +380,6 @@
             color: var(--text-light);
         }
 
-        /* ========== TOGGLE SWITCH ========== */
-        .toggle-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
-            background: var(--bg-section);
-            border-radius: 8px;
-        }
-
-        .toggle-label {
-            font-weight: 500;
-        }
-
-        .toggle-switch {
-            position: relative;
-            width: 50px;
-            height: 26px;
-        }
-
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: var(--border);
-            transition: 0.3s;
-            border-radius: 26px;
-        }
-
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 20px;
-            width: 20px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: 0.3s;
-            border-radius: 50%;
-        }
-
-        input:checked + .toggle-slider {
-            background-color: var(--success);
-        }
-
-        input:checked + .toggle-slider:before {
-            transform: translateX(24px);
-        }
 
         /* ========== LOADING STATE ========== */
         .loading-state {
@@ -703,7 +612,7 @@
             <!-- Tabs -->
             <div class="tabs">
                 <button class="tab-btn active" onclick="showTab('overview')">Overview</button>
-                <button class="tab-btn" onclick="showTab('whatsapp')">WhatsApp Reminders</button>
+                <button class="tab-btn" onclick="showTab('whatsapp')">Reminders</button>
                 <button class="tab-btn" onclick="showTab('settings')">Settings</button>
                 <button class="tab-btn" onclick="showTab('support')">Support</button>
             </div>
@@ -769,129 +678,112 @@
                 </div>
             </div>
 
-            <!-- WhatsApp Tab -->
+            <!-- WhatsApp Reminders Tab -->
             <div class="tab-content" id="tab-whatsapp">
                 <div class="card">
                     <div class="card-header">
                         <h3>WhatsApp Reminders</h3>
-                        <span class="badge" id="whatsappBadge">Disconnected</span>
+                        <span class="badge" id="whatsappBadge">Admin Managed</span>
                     </div>
                     <div class="card-body">
-                        <!-- WhatsApp Status -->
+                        <!-- Service Status -->
                         <div class="whatsapp-status">
-                            <div class="status-indicator" id="whatsappIndicator"></div>
+                            <div class="status-indicator" id="serviceIndicator"></div>
                             <div>
-                                <div style="font-weight: 600;" id="whatsappStatusText">Not Connected</div>
-                                <div style="font-size: 0.85rem; color: var(--text-light);" id="whatsappPhone"></div>
+                                <div style="font-weight: 600;" id="serviceStatusText">Checking service status...</div>
+                                <div style="font-size: 0.85rem; color: var(--text-light);" id="serviceDetails"></div>
                             </div>
                         </div>
 
-                        <!-- Not Connected State -->
-                        <div class="state show" id="waDisconnectedState">
-                            <div style="text-align: center; padding: 2rem 0;">
-                                <p style="color: var(--text-light); margin-bottom: 1.5rem;">
-                                    Connect your WhatsApp to receive automatic reminders directly to your phone.
-                                    Reminders you create using Claude AI will be sent to your own WhatsApp number.
-                                </p>
-                                <button class="btn btn-primary" onclick="connectWhatsApp()" id="btnConnect">
-                                    Connect WhatsApp
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- QR Code State -->
-                        <div class="state" id="waQrState">
-                            <div class="qr-container">
-                                <img id="qrCodeImage" src="" alt="QR Code">
-                                <div class="qr-instructions">
-                                    <p style="font-weight: 600; margin-bottom: 0.5rem;">Scan with WhatsApp:</p>
-                                    <ol>
-                                        <li>Open WhatsApp on your phone</li>
-                                        <li>Tap <strong>Menu ⋮</strong> or <strong>Settings</strong></li>
-                                        <li>Tap <strong>Linked Devices</strong></li>
-                                        <li>Tap <strong>Link a Device</strong></li>
-                                        <li>Point your phone at this QR code</li>
-                                    </ol>
-                                </div>
-                            </div>
-                            <div style="text-align: center;">
-                                <button class="btn btn-secondary" onclick="cancelConnect()">Cancel</button>
-                            </div>
-                        </div>
-
-                        <!-- Connected State -->
-                        <div class="state" id="waConnectedState">
-                            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-                                <button class="btn btn-success" onclick="sendTestMessage()" id="btnTest">
-                                    Send Test Message
-                                </button>
-                                <button class="btn btn-danger" onclick="disconnectWhatsApp()" id="btnDisconnect">
-                                    Disconnect
-                                </button>
-                            </div>
-
-                            <!-- Reminders Table Status -->
-                            <div style="margin-top: 2rem;">
-                                <h4 style="margin-bottom: 1rem;">Reminders Table</h4>
-                                <div class="reminders-status" id="remindersStatus">
-                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                        <span id="remindersStatusIcon">⏳</span>
-                                        <span id="remindersStatusText">Checking...</span>
+                        <!-- Phone Number Management -->
+                        <div style="background: var(--bg-section); border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                                📱 Your WhatsApp Number
+                            </h4>
+                            <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 1rem;">
+                                Enter your WhatsApp number to receive reminders. Our admin will configure the service for you.
+                            </p>
+                            
+                            <div id="phoneInputSection">
+                                <div style="display: flex; gap: 1rem; align-items: end; margin-bottom: 1rem;">
+                                    <div style="flex: 1;">
+                                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem;">Phone Number</label>
+                                        <input type="tel" id="customerPhoneInput" placeholder="+60123456789" 
+                                               style="width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem;">
+                                        <div style="font-size: 0.8rem; color: var(--text-light); margin-top: 0.25rem;">Include country code (e.g., +60 for Malaysia)</div>
                                     </div>
-                                </div>
-
-                                <!-- Enable/Disable Toggle -->
-                                <div class="toggle-container" id="reminderToggleContainer" style="display: none;">
-                                    <div>
-                                        <div class="toggle-label">Enable Reminders</div>
-                                        <div style="font-size: 0.85rem; color: var(--text-light);">
-                                            Automatically send due reminders to WhatsApp
-                                        </div>
-                                    </div>
-                                    <label class="toggle-switch">
-                                        <input type="checkbox" id="reminderToggle" onchange="toggleReminders(this.checked)">
-                                        <span class="toggle-slider"></span>
-                                    </label>
-                                </div>
-
-                                <!-- Pending Count -->
-                                <div id="pendingRemindersInfo" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--bg-section); border-radius: 8px;">
-                                    <span style="font-weight: 600;">Pending Reminders:</span>
-                                    <span id="pendingCount">0</span>
-                                </div>
-
-                                <!-- Table Setup Help -->
-                                <div class="table-setup-help" id="tableSetupHelp" style="display: none;">
-                                    <h4>Create a "Reminders" Table</h4>
-                                    <p style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 1rem;">
-                                        Create a table named exactly <strong>"Reminders"</strong> with these fields:
-                                    </p>
-                                    <ul class="field-list">
-                                        <li>
-                                            <span class="field-name">Message</span>
-                                            <span class="field-type">Single Line Text</span>
-                                        </li>
-                                        <li>
-                                            <span class="field-name">Date</span>
-                                            <span class="field-type">Date</span>
-                                        </li>
-                                        <li>
-                                            <span class="field-name">Time</span>
-                                            <span class="field-type">Single Select (08:00, 09:00, etc.)</span>
-                                        </li>
-                                        <li>
-                                            <span class="field-name">Status</span>
-                                            <span class="field-type">Single Select (Pending, Sent, Failed)</span>
-                                        </li>
-                                        <li>
-                                            <span class="field-name">Sent_At</span>
-                                            <span class="field-type">DateTime (auto-filled)</span>
-                                        </li>
-                                    </ul>
-                                    <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="checkRemindersTable()">
-                                        Check Again
+                                    <button class="btn btn-primary" onclick="updateCustomerPhone()" id="updatePhoneBtn">
+                                        Update Number
                                     </button>
                                 </div>
+                            </div>
+                            
+                            <div id="currentPhoneDisplay" style="display: none;">
+                                <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px;">
+                                    <div style="font-weight: 600; color: var(--success); margin-bottom: 0.5rem;">✓ Phone Number Configured</div>
+                                    <div style="font-size: 0.9rem;" id="displayPhoneNumber"></div>
+                                    <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 0.5rem;">Reminders will be sent to this number when enabled by admin</div>
+                                    <button class="btn btn-secondary" onclick="editCustomerPhone()" style="margin-top: 0.75rem; padding: 0.5rem 1rem; font-size: 0.85rem;">
+                                        Change Number
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reminders Table Status -->
+                        <div style="background: var(--bg-section); border-radius: 8px; padding: 1.5rem;">
+                            <h4 style="margin-bottom: 1rem;">Reminders Status</h4>
+                            
+                            <div class="reminders-status" id="remindersStatus">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <span id="remindersStatusIcon">⏳</span>
+                                    <span id="remindersStatusText">Checking reminders table...</span>
+                                </div>
+                            </div>
+
+                            <!-- Service Status Info -->
+                            <div id="serviceStatusInfo" style="margin-top: 1rem; padding: 1rem; border-radius: 6px;">
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;" id="serviceStatusTitle">Service Status</div>
+                                <div style="font-size: 0.9rem;" id="serviceStatusDescription">Loading...</div>
+                            </div>
+
+                            <!-- Pending Reminders Count -->
+                            <div id="pendingRemindersInfo" style="display: none; margin-top: 1rem; padding: 1rem; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px;">
+                                <div style="font-weight: 600; color: var(--info);">Pending Reminders: <span id="pendingCount">0</span></div>
+                                <div style="font-size: 0.85rem; color: var(--text-light); margin-top: 0.25rem;">These will be sent when due (if service is active)</div>
+                            </div>
+
+                            <!-- Table Setup Help -->
+                            <div class="table-setup-help" id="tableSetupHelp" style="display: none;">
+                                <h4>Create a "Reminders" Table</h4>
+                                <p style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 1rem;">
+                                    Create a table named exactly <strong>"Reminders"</strong> with these fields:
+                                </p>
+                                <ul class="field-list">
+                                    <li>
+                                        <span class="field-name">Message</span>
+                                        <span class="field-type">Single Line Text</span>
+                                    </li>
+                                    <li>
+                                        <span class="field-name">Date</span>
+                                        <span class="field-type">Date</span>
+                                    </li>
+                                    <li>
+                                        <span class="field-name">Time</span>
+                                        <span class="field-type">Single Select (08:00, 09:00, etc.)</span>
+                                    </li>
+                                    <li>
+                                        <span class="field-name">Status</span>
+                                        <span class="field-type">Single Select (Pending, Sent, Failed)</span>
+                                    </li>
+                                    <li>
+                                        <span class="field-name">Sent_At</span>
+                                        <span class="field-type">DateTime (auto-filled)</span>
+                                    </li>
+                                </ul>
+                                <button class="btn btn-secondary" style="margin-top: 1rem;" onclick="checkRemindersTable()">
+                                    Check Again
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -994,9 +886,6 @@
         // ========== STATE ==========
         let customer = null;
         let mcpKey = null;
-        let pollInterval = null;
-        let qrPollAttempts = 0;
-        const MAX_QR_POLL_ATTEMPTS = 60;
 
         // ========== INITIALIZATION ==========
         document.addEventListener('DOMContentLoaded', function() {
@@ -1116,8 +1005,8 @@
                 // Show dashboard
                 showState('dashboardState');
 
-                // Check WhatsApp status
-                await checkWhatsAppStatus();
+                // Check reminder service status
+                await checkReminderServiceStatus();
 
             } catch (error) {
                 console.error('Load dashboard error:', error);
@@ -1180,227 +1069,189 @@
 
             // Refresh data when switching to WhatsApp tab
             if (tabName === 'whatsapp') {
-                checkWhatsAppStatus();
+                checkReminderServiceStatus();
             }
         }
 
-        // ========== WHATSAPP FUNCTIONS ==========
-        async function checkWhatsAppStatus() {
+        // ========== WHATSAPP REMINDER STATUS ==========
+        async function checkReminderServiceStatus() {
             try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/status`);
-
-                if (!response.ok) {
-                    // WhatsApp endpoints might not exist yet
-                    updateWhatsAppUI(false, null, false);
-                    return;
+                // Check if customer has phone number configured
+                const customerResponse = await fetch(`${API_BASE}/api/dashboard/${mcpKey}/phone`);
+                let customerPhone = null;
+                
+                if (customerResponse.ok) {
+                    const customerData = await customerResponse.json();
+                    customerPhone = customerData.phone;
                 }
-
-                const data = await response.json();
-                updateWhatsAppUI(data.connected, data.phone, data.reminderEnabled);
-
-                if (data.connected) {
-                    await checkRemindersTable();
+                
+                // Check service status (admin-controlled)
+                const serviceResponse = await fetch(`${API_BASE}/api/whatsapp/service/status`);
+                let serviceStatus = { active: false, assistantConnected: false };
+                
+                if (serviceResponse.ok) {
+                    const serviceData = await serviceResponse.json();
+                    serviceStatus = serviceData;
                 }
+                
+                updateReminderServiceUI(customerPhone, serviceStatus);
+                await checkRemindersTable();
 
             } catch (error) {
-                console.error('WhatsApp status error:', error);
-                updateWhatsAppUI(false, null, false);
+                console.error('Service status error:', error);
+                updateReminderServiceUI(null, { active: false, assistantConnected: false, error: error.message });
             }
         }
 
-        function updateWhatsAppUI(connected, phone, reminderEnabled) {
-            const indicator = document.getElementById('whatsappIndicator');
-            const statusText = document.getElementById('whatsappStatusText');
-            const phoneEl = document.getElementById('whatsappPhone');
+        function updateReminderServiceUI(customerPhone, serviceStatus) {
+            const indicator = document.getElementById('serviceIndicator');
+            const statusText = document.getElementById('serviceStatusText');
+            const serviceDetails = document.getElementById('serviceDetails');
             const badge = document.getElementById('whatsappBadge');
+            const phoneInputSection = document.getElementById('phoneInputSection');
+            const currentPhoneDisplay = document.getElementById('currentPhoneDisplay');
+            const serviceStatusInfo = document.getElementById('serviceStatusInfo');
 
-            if (connected) {
+            // Update phone number display
+            if (customerPhone) {
+                phoneInputSection.style.display = 'none';
+                currentPhoneDisplay.style.display = 'block';
+                document.getElementById('displayPhoneNumber').textContent = customerPhone;
+                document.getElementById('customerPhoneInput').value = customerPhone;
+            } else {
+                phoneInputSection.style.display = 'block';
+                currentPhoneDisplay.style.display = 'none';
+            }
+
+            // Update service status
+            if (serviceStatus.error) {
+                indicator.className = 'status-indicator';
+                indicator.style.background = '#ef4444';
+                statusText.textContent = 'Service Error';
+                serviceDetails.textContent = 'Unable to check status';
+                badge.textContent = 'Error';
+                badge.className = 'badge badge-disconnected';
+                
+                serviceStatusInfo.style.background = 'rgba(239, 68, 68, 0.1)';
+                serviceStatusInfo.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+                document.getElementById('serviceStatusTitle').textContent = 'Service Error';
+                document.getElementById('serviceStatusDescription').textContent = serviceStatus.error;
+                
+            } else if (serviceStatus.active && serviceStatus.assistantConnected && customerPhone) {
                 indicator.className = 'status-indicator connected';
-                statusText.textContent = 'Connected';
-                phoneEl.textContent = phone ? '+' + phone : '';
-                badge.textContent = 'Connected';
+                statusText.textContent = 'Reminders Active';
+                serviceDetails.textContent = `Sending to ${customerPhone}`;
+                badge.textContent = 'Active';
                 badge.className = 'badge badge-connected';
-
-                showWaState('waConnectedState');
-                document.getElementById('reminderToggle').checked = reminderEnabled;
+                
+                serviceStatusInfo.style.background = 'rgba(16, 185, 129, 0.1)';
+                serviceStatusInfo.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                document.getElementById('serviceStatusTitle').textContent = '✓ Service Active';
+                document.getElementById('serviceStatusDescription').textContent = 'WhatsApp reminders are enabled and will be sent when due';
+                
+            } else if (serviceStatus.active && serviceStatus.assistantConnected && !customerPhone) {
+                indicator.className = 'status-indicator pending';
+                statusText.textContent = 'Phone Number Required';
+                serviceDetails.textContent = 'Service ready, add your phone number';
+                badge.textContent = 'Setup Required';
+                badge.className = 'badge badge-pending';
+                
+                serviceStatusInfo.style.background = 'rgba(245, 158, 11, 0.1)';
+                serviceStatusInfo.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+                document.getElementById('serviceStatusTitle').textContent = '⚠ Phone Number Required';
+                document.getElementById('serviceStatusDescription').textContent = 'WhatsApp service is active but you need to add your phone number to receive reminders';
+                
+            } else if (serviceStatus.active && !serviceStatus.assistantConnected) {
+                indicator.className = 'status-indicator pending';
+                statusText.textContent = 'Assistant Disconnected';
+                serviceDetails.textContent = 'Waiting for admin to connect WhatsApp';
+                badge.textContent = 'Admin Setup Required';
+                badge.className = 'badge badge-pending';
+                
+                serviceStatusInfo.style.background = 'rgba(245, 158, 11, 0.1)';
+                serviceStatusInfo.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+                document.getElementById('serviceStatusTitle').textContent = '⚠ Assistant Setup Required';
+                document.getElementById('serviceStatusDescription').textContent = 'Service is enabled but admin needs to connect the WhatsApp assistant';
+                
             } else {
                 indicator.className = 'status-indicator';
-                statusText.textContent = 'Not Connected';
-                phoneEl.textContent = '';
-                badge.textContent = 'Disconnected';
+                indicator.style.background = '#6b7280';
+                statusText.textContent = 'Service Disabled';
+                serviceDetails.textContent = 'Contact admin to enable reminders';
+                badge.textContent = 'Disabled';
                 badge.className = 'badge badge-disconnected';
-
-                showWaState('waDisconnectedState');
+                
+                serviceStatusInfo.style.background = 'rgba(107, 114, 128, 0.1)';
+                serviceStatusInfo.style.border = '1px solid rgba(107, 114, 128, 0.3)';
+                document.getElementById('serviceStatusTitle').textContent = 'Service Disabled';
+                document.getElementById('serviceStatusDescription').textContent = 'WhatsApp reminder service is currently disabled. Contact admin for activation.';
             }
         }
 
-        function showWaState(stateId) {
-            ['waDisconnectedState', 'waQrState', 'waConnectedState'].forEach(id => {
-                document.getElementById(id).classList.remove('show');
-            });
-            document.getElementById(stateId).classList.add('show');
-        }
-
-        async function connectWhatsApp() {
-            const btn = document.getElementById('btnConnect');
-            btn.disabled = true;
-            btn.textContent = 'Connecting...';
-
-            try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/connect`, {
-                    method: 'POST'
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to connect');
-                }
-
-                if (data.status === 'connected') {
-                    // Already connected
-                    updateWhatsAppUI(true, data.phone, false);
-                    showToast('WhatsApp connected!', 'success');
-                    await checkRemindersTable();
-                } else {
-                    // Show QR state first, then set image if available
-                    showWaState('waQrState');
-                    if (data.qrCode) {
-                        document.getElementById('qrCodeImage').src = data.qrCode;
-                    } else {
-                        // Set placeholder or loading state for QR image
-                        document.getElementById('qrCodeImage').src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDIwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjZjVmNWY1Ii8+Cjx0ZXh0IHg9IjEwMCIgeT0iMTAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiPkxvYWRpbmcgUVIuLi48L3RleHQ+Cjwvc3ZnPgo=';
-                    }
-                    startQrPolling();
-                }
-
-            } catch (error) {
-                console.error('Connect error:', error);
-                showToast('Error: ' + error.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Connect WhatsApp';
-            }
-        }
-
-        function startQrPolling() {
-            qrPollAttempts = 0;
-            pollInterval = setInterval(pollForConnection, 2000);
-        }
-
-        async function pollForConnection() {
-            qrPollAttempts++;
-
-            if (qrPollAttempts > MAX_QR_POLL_ATTEMPTS) {
-                clearInterval(pollInterval);
-                showToast('Connection timed out. Please try again.', 'error');
-                showWaState('waDisconnectedState');
+        // Customer phone management functions
+        async function updateCustomerPhone() {
+            const phoneInput = document.getElementById('customerPhoneInput');
+            const updateBtn = document.getElementById('updatePhoneBtn');
+            const phone = phoneInput.value.trim();
+            
+            if (!phone) {
+                showToast('Please enter a phone number', 'error');
                 return;
             }
-
-            try {
-                // First check if there's a new QR code
-                const qrResponse = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/qr`);
-                if (qrResponse.ok) {
-                    const qrData = await qrResponse.json();
-                    if (qrData.qrCode) {
-                        document.getElementById('qrCodeImage').src = qrData.qrCode;
-                    }
-                    if (qrData.status === 'connected') {
-                        clearInterval(pollInterval);
-                        updateWhatsAppUI(true, qrData.phone, false);
-                        showToast('WhatsApp connected!', 'success');
-                        await checkRemindersTable();
-                        return;
-                    }
-                }
-
-                // Then check status
-                const statusResponse = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/status`);
-                if (statusResponse.ok) {
-                    const statusData = await statusResponse.json();
-                    if (statusData.connected) {
-                        clearInterval(pollInterval);
-                        updateWhatsAppUI(true, statusData.phone, statusData.reminderEnabled);
-                        showToast('WhatsApp connected!', 'success');
-                        await checkRemindersTable();
-                    }
-                }
-
-            } catch (error) {
-                console.error('Poll error:', error);
-            }
-        }
-
-        function cancelConnect() {
-            clearInterval(pollInterval);
-            showWaState('waDisconnectedState');
-        }
-
-        async function disconnectWhatsApp() {
-            if (!confirm('Are you sure you want to disconnect WhatsApp?')) {
+            
+            // Basic phone validation
+            if (!/^\+[1-9]\d{1,14}$/.test(phone)) {
+                showToast('Please enter a valid phone number with country code (e.g., +60123456789)', 'error');
                 return;
             }
-
-            const btn = document.getElementById('btnDisconnect');
-            btn.disabled = true;
-            btn.textContent = 'Disconnecting...';
-
+            
+            updateBtn.disabled = true;
+            updateBtn.textContent = 'Updating...';
+            
             try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/disconnect`, {
-                    method: 'POST'
+                const response = await fetch(`${API_BASE}/api/dashboard/${mcpKey}/phone`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: phone })
                 });
-
+                
                 if (!response.ok) {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Failed to disconnect');
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to update phone number');
                 }
-
-                updateWhatsAppUI(false, null, false);
-                showToast('WhatsApp disconnected', 'success');
-
+                
+                showToast('Phone number updated successfully!', 'success');
+                
+                // Refresh the service status
+                setTimeout(() => {
+                    checkReminderServiceStatus();
+                }, 500);
+                
             } catch (error) {
-                console.error('Disconnect error:', error);
-                showToast('Error: ' + error.message, 'error');
+                console.error('Update phone error:', error);
+                showToast('Failed to update: ' + error.message, 'error');
             } finally {
-                btn.disabled = false;
-                btn.textContent = 'Disconnect';
+                updateBtn.disabled = false;
+                updateBtn.textContent = 'Update Number';
             }
         }
-
-        async function sendTestMessage() {
-            const btn = document.getElementById('btnTest');
-            btn.disabled = true;
-            btn.textContent = 'Sending...';
-
-            try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/test`, {
-                    method: 'POST'
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to send test message');
-                }
-
-                showToast('Test message sent! Check your WhatsApp.', 'success');
-
-            } catch (error) {
-                console.error('Test message error:', error);
-                showToast('Error: ' + error.message, 'error');
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Send Test Message';
-            }
+        
+        function editCustomerPhone() {
+            document.getElementById('phoneInputSection').style.display = 'block';
+            document.getElementById('currentPhoneDisplay').style.display = 'none';
         }
 
-        // ========== REMINDERS FUNCTIONS ==========
+
+
+
+
+
+
+        // ========== REMINDERS TABLE STATUS ==========
         async function checkRemindersTable() {
             const statusEl = document.getElementById('remindersStatus');
             const statusIcon = document.getElementById('remindersStatusIcon');
             const statusText = document.getElementById('remindersStatusText');
-            const toggleContainer = document.getElementById('reminderToggleContainer');
             const setupHelp = document.getElementById('tableSetupHelp');
             const pendingInfo = document.getElementById('pendingRemindersInfo');
 
@@ -1409,7 +1260,7 @@
             statusEl.className = 'reminders-status';
 
             try {
-                const response = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/reminders/status`);
+                const response = await fetch(`${API_BASE}/api/dashboard/${mcpKey}/reminders/status`);
 
                 if (!response.ok) {
                     throw new Error('Failed to check table');
@@ -1419,18 +1270,15 @@
 
                 if (data.tableFound) {
                     statusIcon.textContent = '✅';
-                    statusText.textContent = 'Reminders table found';
+                    statusText.textContent = 'Reminders table found and ready';
                     statusEl.className = 'reminders-status found';
-                    toggleContainer.style.display = 'flex';
                     setupHelp.style.display = 'none';
                     pendingInfo.style.display = 'block';
                     document.getElementById('pendingCount').textContent = data.pendingCount || 0;
-                    document.getElementById('reminderToggle').checked = data.reminderEnabled;
                 } else {
                     statusIcon.textContent = '⚠️';
-                    statusText.textContent = 'Reminders table not found';
+                    statusText.textContent = 'Reminders table not found - create one to use reminders';
                     statusEl.className = 'reminders-status not-found';
-                    toggleContainer.style.display = 'none';
                     setupHelp.style.display = 'block';
                     pendingInfo.style.display = 'none';
                 }
@@ -1438,36 +1286,13 @@
             } catch (error) {
                 console.error('Check table error:', error);
                 statusIcon.textContent = '❌';
-                statusText.textContent = 'Could not check table';
+                statusText.textContent = 'Could not check table - ensure you have access';
                 statusEl.className = 'reminders-status not-found';
-                toggleContainer.style.display = 'none';
-                setupHelp.style.display = 'block';
+                setupHelp.style.display = 'none';
                 pendingInfo.style.display = 'none';
             }
         }
 
-        async function toggleReminders(enabled) {
-            const toggle = document.getElementById('reminderToggle');
-
-            try {
-                const endpoint = enabled ? 'enable' : 'disable';
-                const response = await fetch(`${API_BASE}/api/whatsapp/${mcpKey}/reminders/${endpoint}`, {
-                    method: 'POST'
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    throw new Error(data.error || 'Failed to update');
-                }
-
-                showToast(`Reminders ${enabled ? 'enabled' : 'disabled'}`, 'success');
-
-            } catch (error) {
-                console.error('Toggle error:', error);
-                showToast('Error: ' + error.message, 'error');
-                toggle.checked = !enabled;  // Revert
-            }
-        }
 
         // ========== UTILITY FUNCTIONS ==========
         function showToast(message, type) {
@@ -1527,11 +1352,8 @@
             // Clear state
             customer = null;
             mcpKey = null;
-            // Stop any polling
-            if (pollInterval) {
-                clearInterval(pollInterval);
-                pollInterval = null;
-            }
+            // Clear any intervals if needed
+            // (placeholder for future cleanup)
             // Show login
             showState('loginState');
             // Clear inputs
