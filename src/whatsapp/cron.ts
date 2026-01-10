@@ -40,8 +40,23 @@ async function processAllReminders(): Promise<void> {
 
 		// Process each customer
 		for (const customer of customers) {
+			// Skip if missing required fields
+			if (!customer.encrypted_token || !customer.mcp_key) {
+				continue;
+			}
+
 			try {
-				const result = await processCustomerReminders(customer as WhatsAppCustomer);
+				const whatsappCustomer: WhatsAppCustomer = {
+					id: customer.id,
+					mcp_key: customer.mcp_key,
+					email: customer.email,
+					encrypted_token: customer.encrypted_token,
+					teable_base_url: customer.teable_base_url,
+					whatsapp_connected: customer.whatsapp_connected,
+					whatsapp_phone: customer.whatsapp_phone,
+					reminder_enabled: customer.reminder_enabled
+				};
+				const result = await processCustomerReminders(whatsappCustomer);
 				stats.customersProcessed++;
 				stats.remindersSent += result.sent;
 				stats.remindersFailed += result.failed;

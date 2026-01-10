@@ -21,6 +21,12 @@ export interface TeableCustomer {
 	expires_at: string | null;
 	created_at: string;
 	password_hash: string | null;
+	// WhatsApp fields
+	whatsapp_connected: boolean;
+	whatsapp_phone: string | null;
+	whatsapp_session_id: string | null;
+	whatsapp_last_connected: string | null;
+	reminder_enabled: boolean;
 }
 
 export interface AdminUser {
