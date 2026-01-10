@@ -1,8 +1,10 @@
 # Claude AI Assistant Instructions
 
-## Git Configuration
-- Use email: ngsanzen@gmail.com
-- Use name: ngsanzen
+## CRITICAL: Git Configuration
+- **ALWAYS** use email: ngsanzen@gmail.com
+- **ALWAYS** use name: ngsanzen
+- **BEFORE EVERY COMMIT** run: `git config user.email "ngsanzen@gmail.com" && git config user.name "ngsanzen"`
+- This is MANDATORY for all commits in this project
 
 ## Project Architecture
 
