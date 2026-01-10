@@ -2396,11 +2396,10 @@ async function startHttpServer() {
 		console.log('Endpoints:');
 		console.log(`  Health: GET /health`);
 		console.log(`  Admin API: POST/GET /api/customers`);
-		console.log(`  MCP SSE: GET /mcp/:mcpKey/sse`);
-		console.log(`  MCP Messages: POST /mcp/:mcpKey/messages`);
-		console.log(`  WhatsApp API: /api/whatsapp/:mcpKey/*`);
 		console.log(`  Admin WhatsApp: POST /api/admin/whatsapp/connect`);
 		console.log(`  Admin WhatsApp: GET /api/admin/whatsapp/status`);
+		console.log(`  MCP SSE: GET /mcp/:mcpKey/sse`);
+		console.log(`  MCP Messages: POST /mcp/:mcpKey/messages`);
 
 		// Initialize Admin WhatsApp service if enabled
 		if (process.env.WHATSAPP_ENABLED === 'true') {
