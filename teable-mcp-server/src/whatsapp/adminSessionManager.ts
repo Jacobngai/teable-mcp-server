@@ -74,16 +74,7 @@ class AdminSessionManager {
             const socket = makeWASocket({
                 auth: state,
                 printQRInTerminal: false,
-                logger: {
-                    level: 'error',
-                    child: () => ({ level: 'error' }),
-                    trace: () => {},
-                    debug: () => {},
-                    info: () => {},
-                    warn: () => {},
-                    error: console.error,
-                    fatal: console.error
-                }
+                logger: undefined
             });
 
             this.sessionState.socket = socket;
@@ -221,7 +212,7 @@ class AdminSessionManager {
             
             return { 
                 success: true, 
-                messageId: result?.key?.id 
+                messageId: result?.key?.id || undefined
             };
 
         } catch (error) {

@@ -9,7 +9,7 @@ import {
 	updateAdminReminderStatus, 
 	AdminReminderQueue 
 } from '../supabase.js';
-import { isAdminConnected, sendAdminMessage } from './adminSessionManager.js';
+import { adminSessionManager } from './adminSessionManager.js';
 
 // Cron job instance
 let reminderCron: cron.ScheduledTask | null = null;
@@ -38,7 +38,7 @@ async function processAdminReminders(): Promise<void> {
 		console.log('[Admin Reminders] Starting reminder processing...');
 
 		// Check if admin WhatsApp is connected
-		if (!isAdminConnected()) {
+		if (!adminSessionManager.getStatus().connected) {
 			console.log('[Admin Reminders] Admin WhatsApp not connected, skipping');
 			return;
 		}
@@ -53,10 +53,9 @@ async function processAdminReminders(): Promise<void> {
 				stats.remindersProcessed++;
 
 				// Send reminder via admin WhatsApp
-				await sendAdminMessage(
+				await adminSessionManager.sendMessage(
 					reminder.customer_phone,
-					reminder.reminder_text,
-					reminder.customer_name
+					reminder.reminder_text
 				);
 
 				// Mark as sent
@@ -155,7 +154,7 @@ export function getAdminReminderCronStatus(): {
 		isProcessing,
 		lastRunTime,
 		lastRunStats,
-		adminConnected: isAdminConnected()
+		adminConnected: adminSessionManager.getStatus().connected
 	};
 }
 

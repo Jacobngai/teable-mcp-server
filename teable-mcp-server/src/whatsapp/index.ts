@@ -6,20 +6,9 @@
 
 // Admin session management
 export {
-	createAdminSession,
-	getAdminSessionState,
-	getAdminConnectionStatus,
-	isAdminConnected,
-	getAdminQRCode,
-	getAdminPhoneNumber,
-	disconnectAdminSession,
-	sendAdminMessage,
-	sendAdminTestMessage,
-	restoreAdminSession,
-	cleanupAdminSession,
-	onQRCode,
-	onConnectionChange,
-	AdminSessionState
+	adminSessionManager,
+	AdminSessionState,
+	MessageResult
 } from './adminSessionManager.js';
 
 // Admin reminder service
