@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Payment Successful - Connect Your Database</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --teable-bg: #0d0d12;
+            --teable-card: #1e1e2a;
+            --teable-border: #2a2a3a;
+            --teable-blue: #2563eb;
+            --teable-blue-hover: #3b82f6;
+            --teable-green: #10b981;
+            --teable-yellow: #f59e0b;
+            --teable-text: #e5e5e5;
+            --teable-text-muted: #9ca3af;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--teable-bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .card {
+            background: var(--teable-card);
+            border: 1px solid var(--teable-border);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            width: 100%;
+            max-width: 650px;
+            overflow: hidden;
+        }
+
+        .header {
+            background: var(--teable-blue);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .header .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .logo span {
+            color: var(--teable-yellow);
+        }
+
+        .body {
+            padding: 2rem;
+        }
+
+        /* Hide all states by default */
+        .state { display: none; }
+        .state.show { display: block; }
+
+        /* Loading State */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--teable-border);
+            border-top-color: var(--teable-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 3rem 0;
+        }
+
+        .loading-state h2 {
+            color: var(--teable-text);
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-state p {
+            color: var(--teable-text-muted);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin: 2rem 0;
+            padding: 0 1rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: var(--teable-border);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 0.75rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--teable-blue), var(--teable-blue-hover));
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.5s ease;
+            animation: progress-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes progress-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: var(--teable-text-muted);
+            text-align: center;
+        }
+
+        .loading-steps {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 1.5rem;
+        }
+
+        .loading-step {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--teable-text-muted);
+            font-size: 0.85rem;
+        }
+
+        .loading-step.active {
+            color: var(--teable-green);
+            font-weight: 600;
+        }
+
+        .loading-step.done {
+            color: var(--teable-green);
+        }
+
+        .loading-step .step-icon {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--teable-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+        }
+
+        .loading-step.active .step-icon {
+            background: var(--teable-green);
+            color: white;
+            animation: pulse 1s infinite;
+        }
+
+        .loading-step.done .step-icon {
+            background: var(--teable-green);
+            color: white;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Success Banner */
+        .success-banner {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .success-banner .checkmark {
+            width: 60px;
+            height: 60px;
+            background: var(--teable-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 2rem;
+            color: white;
+        }
+
+        .success-banner h3 {
+            color: var(--teable-green);
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-banner p {
+            color: var(--teable-text);
+        }
+
+        /* Hosting Choice */
+        .hosting-choice {
+            margin-bottom: 2rem;
+        }
+
+        .hosting-choice h2 {
+            text-align: center;
+            color: var(--teable-text);
+            margin-bottom: 0.5rem;
+        }
+
+        .hosting-choice .subtitle {
+            text-align: center;
+            color: var(--teable-text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .choice-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .choice-cards.three-cards {
+            grid-template-columns: repeat(3, 1fr);
+        }
+
+        @media (max-width: 800px) {
+            .choice-cards.three-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .choice-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Plan Limits */
+        .plan-limits {
+            background: var(--teable-bg);
+            border: 1px solid var(--teable-border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .limit-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 0;
+            font-size: 0.9rem;
+            color: var(--teable-text-muted);
+        }
+
+        .limit-icon {
+            font-size: 1rem;
+        }
+
+        .limit-row strong {
+            color: var(--teable-green);
+        }
+
+        .price-note {
+            font-size: 0.85rem;
+            color: var(--teable-text-muted);
+        }
+
+        .choice-card {
+            border: 2px solid var(--teable-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            background: var(--teable-bg);
+        }
+
+        .choice-card:hover {
+            border-color: var(--teable-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .choice-card.selected {
+            border-color: var(--teable-green);
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .choice-card .badge {
+            position: absolute;
+            top: -10px;
+            right: 10px;
+            background: linear-gradient(135deg, var(--teable-yellow) 0%, #d97706 100%);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .choice-card h4 {
+            color: var(--teable-text);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .choice-card p {
+            color: var(--teable-text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .choice-card .features {
+            font-size: 0.85rem;
+            color: var(--teable-text-muted);
+        }
+
+        .choice-card .features li {
+            margin-bottom: 0.4rem;
+            list-style: none;
+            padding-left: 1.2rem;
+            position: relative;
+        }
+
+        .choice-card .features li::before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--teable-green);
+            font-weight: bold;
+        }
+
+        .choice-card .price {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--teable-border);
+            font-size: 0.85rem;
+            color: var(--teable-text-muted);
+        }
+
+        .choice-card .price strong {
+            color: var(--teable-green);
+        }
+
+        /* Step Progress */
+        .step-progress {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+        }
+
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--teable-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            color: var(--teable-text-muted);
+            font-size: 0.9rem;
+        }
+
+        .step.active .step-circle {
+            background: #10b981;
+            color: white;
+        }
+
+        .step.completed .step-circle {
+            background: #10b981;
+            color: white;
+        }
+
+        .step-line {
+            width: 60px;
+            height: 3px;
+            background: var(--teable-border);
+            margin: 0 0.5rem;
+        }
+
+        .step.completed + .step .step-line,
+        .step.active + .step .step-line {
+            background: #10b981;
+        }
+
+        /* Tutorial Steps */
+        .tutorial-step {
+            background: var(--teable-bg);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .tutorial-step h4 {
+            color: var(--teable-text);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tutorial-step h4 .step-num {
+            background: #10b981;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .tutorial-step p {
+            color: var(--teable-text-muted);
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+        }
+
+        .tutorial-step .action-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #10b981;
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tutorial-step .action-link:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .tutorial-step .tip {
+            background: #fef3c7;
+            padding: 0.75rem;
+            border-radius: 8px;
+            margin-top: 0.75rem;
+            font-size: 0.85rem;
+            color: #92400e;
+        }
+
+        .tutorial-step .tip strong {
+            color: #b45309;
+        }
+
+        /* Form Elements */
+        .form-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-section label {
+            display: block;
+            font-weight: 600;
+            color: var(--teable-text);
+            margin-bottom: 0.5rem;
+        }
+
+        .form-section input, .form-section select {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--teable-border);
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-section input:focus, .form-section select:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .form-section .hint {
+            font-size: 0.85rem;
+            color: var(--teable-text-muted);
+            margin-top: 0.5rem;
+        }
+
+        /* Buttons */
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: var(--teable-bg);
+            color: var(--teable-text);
+            border: 2px solid var(--teable-border);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-group .btn {
+            flex: 1;
+        }
+
+        /* Security Note */
+        .security-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: #d1fae5;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .security-note .icon {
+            font-size: 1.5rem;
+        }
+
+        .security-note p {
+            font-size: 0.9rem;
+            color: #065f46;
+        }
+
+        /* Final Success */
+        .final-success {
+            text-align: center;
+            padding: 1rem 0;
+        }
+
+        .final-success .big-check {
+            width: 80px;
+            height: 80px;
+            background: #10b981;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 3rem;
+            color: white;
+        }
+
+        .final-success h2 {
+            color: #10b981;
+            margin-bottom: 0.5rem;
+        }
+
+        .final-success p {
+            color: var(--teable-text-muted);
+            margin-bottom: 1.5rem;
+        }
+
+        .mcp-url-box {
+            background: var(--teable-bg);
+            border: 2px solid var(--teable-border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .mcp-url-box label {
+            font-size: 0.85rem;
+            color: var(--teable-text-muted);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .mcp-url-box .url {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            word-break: break-all;
+            margin-bottom: 1rem;
+            border: 1px solid var(--teable-border);
+        }
+
+        .config-box {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            text-align: left;
+        }
+
+        .config-box h4 {
+            color: #94a3b8;
+            font-size: 0.85rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .config-box pre {
+            background: #0f172a;
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            color: #e2e8f0;
+        }
+
+        .config-box .copy-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            margin-top: 0.75rem;
+        }
+
+        .config-box .copy-btn:hover {
+            background: #2563eb;
+        }
+
+        /* Error State */
+        .error-state {
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .error-state .error-icon {
+            width: 60px;
+            height: 60px;
+            background: #fee2e2;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            font-size: 2rem;
+            color: #dc2626;
+        }
+
+        .error-state h2 {
+            color: #dc2626;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-state p {
+            color: var(--teable-text-muted);
+        }
+
+        .error-state a {
+            color: #10b981;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* Provisioning Animation */
+        .provisioning-steps {
+            text-align: left;
+            margin-top: 1.5rem;
+        }
+
+        .prov-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--teable-border);
+        }
+
+        .prov-step:last-child {
+            border-bottom: none;
+        }
+
+        .prov-step .icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .prov-step.pending .icon {
+            background: var(--teable-border);
+            color: var(--teable-text-muted);
+        }
+
+        .prov-step.active .icon {
+            background: #fef3c7;
+            color: #d97706;
+            animation: pulse 1s infinite;
+        }
+
+        .prov-step.done .icon {
+            background: #d1fae5;
+            color: #10b981;
+        }
+
+        .prov-step.error .icon {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .prov-step span {
+            color: var(--teable-text);
+        }
+
+        .prov-step.pending span {
+            color: var(--teable-text-muted);
+        }
+
+        /* Account Info Card */
+        .account-info {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .account-info h4 {
+            color: #065f46;
+            margin-bottom: 1rem;
+        }
+
+        .account-info .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #d1fae5;
+        }
+
+        .account-info .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .account-info .info-row label {
+            color: #065f46;
+            font-size: 0.9rem;
+        }
+
+        .account-info .info-row strong {
+            color: #047857;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="header">
+            <div class="logo">Result<span>Marketing</span> AI Connector</div>
+            <p>Connect your Teable database to AI</p>
+        </div>
+
+        <div class="body">
+            <!-- State 1: Loading -->
+            <div class="state loading-state show" id="loadingState">
+                <div class="spinner"></div>
+                <h2 id="loadingTitle">Setting Up Your Account...</h2>
+                <p id="loadingSubtitle">This usually takes 5-10 seconds</p>
+
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Verifying payment...</div>
+                </div>
+
+                <div class="loading-steps">
+                    <div class="loading-step active" id="step1">
+                        <span class="step-icon">1</span>
+                        <span>Payment</span>
+                    </div>
+                    <div class="loading-step" id="step2">
+                        <span class="step-icon">2</span>
+                        <span>Account</span>
+                    </div>
+                    <div class="loading-step" id="step3">
+                        <span class="step-icon">3</span>
+                        <span>Ready</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- State 2: Error -->
+            <div class="state error-state" id="errorState">
+                <div class="error-icon">!</div>
+                <h2>Something Went Wrong</h2>
+                <p id="errorMessage">We couldn't find your payment.</p>
+                <a href="https://wa.me/60175032281?text=Hi,%20I%20just%20paid%20but%20my%20setup%20page%20is%20not%20working.%20Session:%20" id="whatsappSupport" class="btn btn-primary" style="margin-top: 1rem; display: inline-block;" target="_blank">WhatsApp Support</a>
+            </div>
+
+            <!-- State 3: Payment Confirmed - Auto Continue -->
+            <div class="state" id="chooseHostState">
+                <div class="success-banner">
+                    <div class="checkmark">&#10003;</div>
+                    <h3>Payment Successful!</h3>
+                    <p>Welcome, <span id="customerName1">Customer</span>! Setting up your account...</p>
+                </div>
+
+                <div class="hosting-choice">
+                    <h2>Your Plan</h2>
+                    <p class="subtitle" id="planSubtitle">Loading plan details...</p>
+
+                    <div class="choice-cards" style="max-width: 400px; margin: 0 auto;">
+                        <!-- Plan Card (populated dynamically) -->
+                        <div class="choice-card selected" id="selectedPlanCard">
+                            <div class="badge" id="planBadge">YOUR PLAN</div>
+                            <h4 id="planName">Loading...</h4>
+                            <p id="planTagline">Please wait...</p>
+                            <div class="plan-limits">
+                                <div class="limit-row">
+                                    <span class="limit-icon">📊</span>
+                                    <span><strong id="planRows">-</strong> records</span>
+                                </div>
+                                <div class="limit-row">
+                                    <span class="limit-icon">🔌</span>
+                                    <span><strong>Unlimited</strong> AI queries</span>
+                                </div>
+                                <div class="limit-row">
+                                    <span class="limit-icon">📞</span>
+                                    <span id="planSupport">WhatsApp Support</span>
+                                </div>
+                            </div>
+                            <div class="price">
+                                <strong id="planPrice">RM 299/year</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn btn-primary" id="continueBtn" onclick="continueToSetup()">
+                    Continue Setup
+                </button>
+            </div>
+
+            <!-- State 4A: Auto Provisioning (Result Marketing) -->
+            <div class="state" id="provisioningState">
+                <div class="success-banner">
+                    <div class="checkmark">&#9881;</div>
+                    <h3>Setting Up Your Account</h3>
+                    <p>Please wait while we create your Teable Pro account...</p>
+                </div>
+
+                <div class="provisioning-steps">
+                    <div class="prov-step active" id="provStep1">
+                        <div class="icon">1</div>
+                        <span>Creating your Teable account...</span>
+                    </div>
+                    <div class="prov-step pending" id="provStep2">
+                        <div class="icon">2</div>
+                        <span>Generating secure access token...</span>
+                    </div>
+                    <div class="prov-step pending" id="provStep3">
+                        <div class="icon">3</div>
+                        <span>Connecting to AI system...</span>
+                    </div>
+                    <div class="prov-step pending" id="provStep4">
+                        <div class="icon">4</div>
+                        <span>Finalizing setup...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- State 4B: Manual Setup (Teable.io) -->
+            <div class="state" id="manualSetupState">
+                <div class="step-progress">
+                    <div class="step active" id="stepDot1"><div class="step-circle">1</div></div>
+                    <div class="step-line"></div>
+                    <div class="step" id="stepDot2"><div class="step-circle">2</div></div>
+                    <div class="step-line"></div>
+                    <div class="step" id="stepDot3"><div class="step-circle">3</div></div>
+                </div>
+
+                <!-- Step 1: Login to Teable -->
+                <div id="manualStep1">
+                    <div class="tutorial-step">
+                        <h4><span class="step-num">1</span> Log in to your Dashboard</h4>
+                        <p>First, open your Result Marketing dashboard and log in to your account.</p>
+                        <a href="https://table.resultmarketing.asia" target="_blank" class="action-link">
+                            Open Dashboard &#8599;
+                        </a>
+                        <div class="tip">
+                            <strong>Tip:</strong> Keep this page open in a new tab so you can come back easily.
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="goToManualStep(2)">
+                        I'm Logged In - Next Step
+                    </button>
+                </div>
+
+                <!-- Step 2: Create Access Token -->
+                <div id="manualStep2" style="display: none;">
+                    <div class="tutorial-step">
+                        <h4><span class="step-num">2</span> Create an Access Token</h4>
+                        <p>Now we need to create a special key that lets AI read your database. Follow these steps:</p>
+                        <ol style="margin: 1rem 0; padding-left: 1.5rem; color: var(--teable-text-muted); line-height: 1.8;">
+                            <li>Click your <strong>profile picture</strong> (bottom-left corner)</li>
+                            <li>Select <strong>"Settings"</strong></li>
+                            <li>Go to <strong>"Access Tokens"</strong> in the sidebar</li>
+                            <li>Click <strong>"Create New Token"</strong></li>
+                            <li>Name it: <strong>AI Connector</strong></li>
+                            <li>Select <strong>"Full Access"</strong> or choose specific bases</li>
+                            <li>Set expiry to <strong>1 year</strong> or <strong>Never</strong></li>
+                            <li>Click <strong>"Create"</strong></li>
+                        </ol>
+                        <div class="tip">
+                            <strong>Important:</strong> The token is only shown ONCE! Copy it immediately after creating.
+                        </div>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="goToManualStep(1)">Back</button>
+                        <button class="btn btn-primary" onclick="goToManualStep(3)">I've Copied My Token</button>
+                    </div>
+                </div>
+
+                <!-- Step 3: Paste Token -->
+                <div id="manualStep3" style="display: none;">
+                    <div class="tutorial-step">
+                        <h4><span class="step-num">3</span> Paste Your Access Token</h4>
+                        <p>Paste the access token you just copied. We'll encrypt it securely.</p>
+                    </div>
+
+                    <div class="form-section">
+                        <label>Your Teable Access Token</label>
+                        <input
+                            type="password"
+                            id="apiToken"
+                            placeholder="Paste your token here (starts with teable_...)"
+                            oninput="validateManualToken()"
+                        >
+                        <p class="hint">The token should start with "teable_" and be quite long</p>
+                    </div>
+
+                    <div class="security-note">
+                        <span class="icon">&#128274;</span>
+                        <p>
+                            <strong>Your data stays private.</strong> We encrypt your token using AES-256 encryption.
+                            The AI only accesses your data when you explicitly ask it questions.
+                        </p>
+                    </div>
+
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="goToManualStep(2)">Back</button>
+                        <button class="btn btn-primary" id="submitManualBtn" disabled onclick="submitManualToken()">
+                            Connect My Database
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- State 5: Final Success -->
+            <div class="state" id="successState">
+                <div class="final-success">
+                    <div class="big-check">&#10003;</div>
+                    <h2>You're All Set!</h2>
+                    <p>Your Teable database is now connected to AI.</p>
+
+                    <!-- Account Info (only for Result Marketing hosted) -->
+                    <div class="account-info" id="accountInfoBox" style="display: none;">
+                        <h4>Your Teable Pro Account</h4>
+                        <div class="info-row">
+                            <label>Login URL:</label>
+                            <strong><a href="https://table.resultmarketing.asia" target="_blank">table.resultmarketing.asia</a></strong>
+                        </div>
+                        <div class="info-row">
+                            <label>Email:</label>
+                            <strong id="teableEmail"></strong>
+                        </div>
+                        <div class="info-row">
+                            <label>Password:</label>
+                            <strong id="teablePassword"></strong>
+                        </div>
+                        <div class="info-row">
+                            <label>Plan:</label>
+                            <strong>Pro (Free for 1 year)</strong>
+                        </div>
+                    </div>
+
+                    <!-- Claude.ai FREE Option -->
+                    <div style="background: #f0fdf4; border: 2px solid #22c55e; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <h4 style="color: #15803d; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.25rem;">🆓</span> Claude.ai Connector (FREE)
+                        </h4>
+                        <p style="color: #166534; margin-bottom: 1rem; font-size: 0.9rem;">
+                            Connect your database to Claude.ai web version - <strong>completely FREE!</strong>
+                        </p>
+
+                        <!-- Video Tutorials -->
+                        <div style="margin-bottom: 1rem;">
+                            <p style="color: #166534; font-weight: 600; margin-bottom: 0.75rem;">📺 Watch Setup Tutorials:</p>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+                                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px;">
+                                    <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="https://www.youtube.com/embed/Z0VJIl8-fC4" title="Setup Tutorial 1" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                </div>
+                                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px;">
+                                    <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="https://www.youtube.com/embed/mXY_R3uGG0o" title="Setup Tutorial 2" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                </div>
+                                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px;">
+                                    <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none;" src="https://www.youtube.com/embed/jpNK2IXnEvA" title="Setup Tutorial 3" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mcp-url-box" style="background: white; border: 1px solid #bbf7d0; margin: 0;">
+                            <label style="color: #15803d;">Your MCP Connection URL (for Claude.ai)</label>
+                            <div class="url" id="mcpUrl" style="background: #1e293b;"></div>
+                            <button class="btn btn-primary" style="background: #22c55e;" onclick="copyMcpUrl()">Copy URL</button>
+                        </div>
+
+                        <div style="background: #dcfce7; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                            <p style="color: #166534; font-size: 0.85rem; margin: 0;">
+                                <strong>How to connect:</strong> Go to <a href="https://claude.ai" target="_blank" style="color: #15803d;">claude.ai</a> → Click the connector icon → Paste your MCP URL → Start chatting with your database!
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Claude Desktop PRO Option (Collapsible) -->
+                    <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 12px; overflow: hidden; margin-bottom: 1.5rem;">
+                        <button onclick="toggleClaudeDesktop()" style="width: 100%; background: none; border: none; padding: 1rem 1.5rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 1.25rem;">💎</span>
+                                <span style="color: #92400e; font-weight: 600;">Claude Desktop (Pro - $17/month)</span>
+                            </div>
+                            <span id="claudeDesktopArrow" style="color: #92400e; font-size: 1.25rem;">▼</span>
+                        </button>
+                        <div id="claudeDesktopContent" style="display: none; padding: 0 1.5rem 1.5rem;">
+                            <p style="color: #92400e; margin-bottom: 1rem; font-size: 0.9rem;">
+                                For power users who want the desktop app experience. Requires Claude Pro subscription ($17/month).
+                            </p>
+                            <div class="config-box" style="margin: 0; background: white; border: 1px solid #fde68a;">
+                                <h4 style="color: #92400e;">Add to claude_desktop_config.json</h4>
+                                <pre id="configJson" style="font-size: 0.75rem;"></pre>
+                                <button class="copy-btn" onclick="copyConfig()">Copy Configuration</button>
+                            </div>
+                            <div style="background: #fef9c3; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                                <p style="color: #92400e; font-size: 0.85rem; margin: 0;">
+                                    <strong>Steps:</strong> Open Claude Desktop → Settings → Edit Config → Paste config → Restart Claude Desktop
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CRM Setup Prompt -->
+                    <div style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem;">
+                        <h4 style="color: #0369a1; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.25rem;">🚀</span> Quick Start: Setup Your Insurance CRM
+                        </h4>
+                        <p style="color: #0c4a6e; margin-bottom: 1rem; font-size: 0.9rem;">
+                            After connecting to Claude, copy and paste this prompt to automatically create your complete Insurance CRM database:
+                        </p>
+                        <div style="background: #1e293b; border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                            <pre id="crmSetupPrompt" style="color: #e2e8f0; font-size: 0.75rem; white-space: pre-wrap; word-wrap: break-word; margin: 0;">Create an Insurance CRM database in Teable with the following 5 tables. Use the exact field names, types, and options specified below.
+
+---
+
+### TABLE 1: Leads & Clients
+Primary field: Phone Number
+
+Fields:
+1. Phone Number (Single Line Text) - PRIMARY
+2. Full Name (Single Line Text)
+3. Email (Single Line Text)
+4. Birthday (Date - YYYY-MM-DD)
+5. Family Members (Long Text)
+6. Type (Single Select)
+   - Lead (yellow)
+   - Client (green)
+   - Prospect (blue)
+7. Status (Single Select)
+   - Active (green)
+   - Inactive (gray)
+   - Lost (red)
+8. Source (Single Line Text)
+9. Address (Long Text)
+10. Notes (Long Text)
+11. Created Date (Date - YYYY-MM-DD)
+
+---
+
+### TABLE 2: Interaction
+Primary field: Subject
+
+Fields:
+1. Subject (Single Line Text) - PRIMARY
+2. Client Phone (Single Line Text)
+3. Interaction Type (Single Select)
+   - Call (blue)
+   - Meeting (green)
+   - Email (yellow)
+   - WhatsApp (teal)
+   - Site Visit (purple)
+4. Date (Date - YYYY-MM-DD)
+5. Summary (Long Text)
+6. Outcome (Single Select)
+   - Positive (green)
+   - Neutral (yellow)
+   - Negative (red)
+   - Follow-up Needed (orange)
+7. Next Action (Single Line Text)
+8. Notes (Long Text)
+
+---
+
+### TABLE 3: Opportunity
+Primary field: Opportunity Name
+
+Fields:
+1. Opportunity Name (Single Line Text) - PRIMARY
+2. Client Phone (Single Line Text)
+3. Product Type (Single Select)
+   - Life Insurance (blue)
+   - Medical Insurance (green)
+   - Investment (purple)
+   - Motor Insurance (orange)
+   - Property Insurance (teal)
+   - Other (gray)
+4. Stage (Single Select)
+   - New (blue)
+   - Contacted (cyan)
+   - Proposal Sent (yellow)
+   - Negotiation (orange)
+   - Won (green)
+   - Lost (red)
+5. Expected Value (Number - 2 decimal places)
+6. Expected Close Date (Date - YYYY-MM-DD)
+7. Probability (Number - 2 decimal places, 0-100)
+8. Notes (Long Text)
+9. Created Date (Date - YYYY-MM-DD)
+
+---
+
+### TABLE 4: Reminder
+Primary field: Title
+
+Fields:
+1. Title (Single Line Text) - PRIMARY
+2. Client Phone (Single Line Text)
+3. Reminder Type (Single Select)
+   - Follow-up Call (blue)
+   - Meeting (green)
+   - Birthday (pink)
+   - Policy Renewal (orange)
+   - Payment Due (red)
+   - Anniversary (purple)
+   - Other (gray)
+4. Due Date (Date - YYYY-MM-DD)
+5. Status (Single Select)
+   - Pending (yellow)
+   - Completed (green)
+   - Overdue (red)
+   - Cancelled (gray)
+6. Priority (Single Select)
+   - High (red)
+   - Medium (yellow)
+   - Low (green)
+7. Description (Long Text)
+8. Notes (Long Text)
+
+---
+
+### TABLE 5: Policy
+Primary field: Policy Number
+
+Fields:
+1. Policy Number (Single Line Text) - PRIMARY
+2. Client Phone (Single Line Text)
+3. Client Name (Single Line Text)
+4. Policy Type (Single Select)
+   - Life Insurance (blue)
+   - Medical Insurance (green)
+   - Investment (purple)
+   - Motor Insurance (orange)
+   - Property Insurance (teal)
+   - Other (gray)
+5. Insurance Company (Single Line Text)
+6. Premium Amount (Number - 2 decimal places)
+7. Payment Frequency (Single Select)
+   - Monthly (blue)
+   - Quarterly (green)
+   - Half-Yearly (yellow)
+   - Yearly (purple)
+   - One-Time (gray)
+8. Start Date (Date - YYYY-MM-DD)
+9. Renewal Date (Date - YYYY-MM-DD)
+10. Sum Assured (Number - 2 decimal places)
+11. Status (Single Select)
+    - Active (green)
+    - Lapsed (red)
+    - Cancelled (gray)
+    - Matured (purple)
+    - Pending (yellow)
+12. Beneficiary (Single Line Text)
+13. Notes (Long Text)
+
+---
+
+### RELATIONSHIP NOTE:
+All tables use "Client Phone" as the linking key to connect records to the Leads & Clients table.</pre>
+                        </div>
+                        <button class="btn btn-primary" style="margin-top: 1rem;" onclick="copyCrmPrompt()">
+                            Copy CRM Setup Prompt
+                        </button>
+                    </div>
+
+                    <!-- AI Assistant Instructions -->
+                    <div style="background: #fdf4ff; border: 2px solid #d946ef; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem;">
+                        <h4 style="color: #a21caf; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.25rem;">🤖</span> Step 2: Setup Your AI Assistant (InsurePro AI)
+                        </h4>
+                        <p style="color: #701a75; margin-bottom: 1rem; font-size: 0.9rem;">
+                            After creating your CRM, paste this prompt to transform Claude into your personal insurance assistant with full CRM knowledge:
+                        </p>
+                        <div style="background: #1e293b; border-radius: 8px; padding: 1rem; max-height: 250px; overflow-y: auto;">
+                            <pre id="aiAssistantPrompt" style="color: #e2e8f0; font-size: 0.7rem; white-space: pre-wrap; word-wrap: break-word; margin: 0;"># Insurance Agent AI Personal Assistant - Project Instructions
+
+## 🎯 Project Overview
+
+You are **InsurePro AI**, a world-class personal assistant designed specifically for insurance agents. You embody the expertise of a 20-year veteran insurance industry professional combined with cutting-edge AI capabilities. Your mission is to help insurance agents maximize their productivity, close more deals, and provide exceptional service to their clients.
+
+---
+
+## 🧠 Core Identity & Persona
+
+### Who You Are
+- **Name**: InsurePro AI
+- **Experience Level**: Equivalent to 20+ years in the insurance industry
+- **Specialization**: Personal assistant for insurance agents in Malaysia
+- **Communication Style**: Professional yet warm, proactive, detail-oriented, and results-focused
+- **Languages**: Fluent in English, Bahasa Malaysia, and Mandarin Chinese
+
+### Your Core Values
+1. **Client-Centric Excellence**: Every action should ultimately benefit the agent's clients
+2. **Proactive Intelligence**: Anticipate needs before being asked
+3. **Data-Driven Decisions**: Base recommendations on CRM data and industry best practices
+4. **Ethical Standards**: Maintain the highest ethical standards in all recommendations
+5. **Continuous Improvement**: Always seek ways to optimize the agent's workflow
+
+---
+
+## 📊 CRM Database Schema Reference
+
+### Available Tables & Their Purpose
+
+#### 1. Leads & Clients
+**Purpose**: Central repository for all contacts - leads, prospects, and existing clients
+
+| Field Name | Type | Description | Values/Format |
+|------------|------|-------------|---------------|
+| Phone Number | Text (Primary Key) | Unique identifier for each contact | **STRICT FORMAT: 60123456789** |
+| Full Name | Text | Contact's full name | - |
+| Email | Text | Email address | - |
+| Birthday | Date | Birth date for relationship management | YYYY-MM-DD |
+| Family Members | Long Text | Details about family composition | Free text for family planning |
+| Type | Single Select | Contact classification | Lead, Client, Prospect |
+| Status | Single Select | Current engagement status | Active, Inactive, Lost |
+| Source | Text | How they found the agent | Referral, Social Media, Event, etc. |
+| Address | Long Text | Full address | - |
+| Notes | Long Text | Important notes and observations | - |
+| Created Date | Date | When contact was added | YYYY-MM-DD |
+
+#### 2. Interaction
+**Purpose**: Track all touchpoints and communications with contacts
+
+| Field Name | Type | Description | Values/Format |
+|------------|------|-------------|---------------|
+| Subject | Text (Primary Key) | Brief description of interaction | - |
+| Client Phone | Text | Links to Leads & Clients | Phone number reference |
+| Interaction Type | Single Select | Method of communication | Call, Meeting, Email, WhatsApp, Site Visit |
+| Date | Date | When interaction occurred | YYYY-MM-DD |
+| Summary | Long Text | Detailed summary of discussion | - |
+| Outcome | Single Select | Result of interaction | Positive, Neutral, Negative, Follow-up Needed |
+| Next Action | Text | Immediate next step | - |
+| Notes | Long Text | Additional observations | - |
+
+#### 3. Opportunity
+**Purpose**: Track sales pipeline and potential deals
+
+| Field Name | Type | Description | Values/Format |
+|------------|------|-------------|---------------|
+| Opportunity Name | Text (Primary Key) | Descriptive name for the deal | - |
+| Client Phone | Text | Links to Leads & Clients | Phone number reference |
+| Product Type | Single Select | Insurance product category | Life Insurance, Medical Insurance, Investment, Motor Insurance, Property Insurance, Other |
+| Stage | Single Select | Current position in sales pipeline | New, Contacted, Proposal Sent, Negotiation, Won, Lost |
+| Expected Value | Number | Estimated annual premium | Decimal (2 places) |
+| Expected Close Date | Date | Target closing date | YYYY-MM-DD |
+| Probability | Number | Likelihood of closing (%) | 0-100 |
+| Notes | Long Text | Deal-specific notes | - |
+| Created Date | Date | When opportunity was created | YYYY-MM-DD |
+
+#### 4. Reminder
+**Purpose**: Task management and important date tracking
+
+| Field Name | Type | Description | Values/Format |
+|------------|------|-------------|---------------|
+| Title | Text (Primary Key) | Reminder description | - |
+| Client Phone | Text | Links to Leads & Clients | Phone number reference |
+| Reminder Type | Single Select | Category of reminder | Follow-up Call, Meeting, Birthday, Policy Renewal, Payment Due, Anniversary, Other |
+| Due Date | Date | When action is due | YYYY-MM-DD |
+| Status | Single Select | Completion status | Pending, Completed, Overdue, Cancelled |
+| Priority | Single Select | Urgency level | High, Medium, Low |
+| Description | Long Text | Detailed description | - |
+| Notes | Long Text | Additional notes | - |
+
+#### 5. Policy
+**Purpose**: Complete policy portfolio management
+
+| Field Name | Type | Description | Values/Format |
+|------------|------|-------------|---------------|
+| Policy Number | Text (Primary Key) | Unique policy identifier | - |
+| Client Phone | Text | Links to Leads & Clients | Phone number reference |
+| Client Name | Text | Policyholder name | - |
+| Policy Type | Single Select | Insurance category | Life Insurance, Medical Insurance, Investment, Motor Insurance, Property Insurance, Other |
+| Insurance Company | Text | Insurer name | - |
+| Premium Amount | Number | Premium per payment period | Decimal (2 places) in RM |
+| Payment Frequency | Single Select | How often premium is paid | Monthly, Quarterly, Half-Yearly, Yearly, One-Time |
+| Start Date | Date | Policy inception date | YYYY-MM-DD |
+| Renewal Date | Date | Next renewal date | YYYY-MM-DD |
+| Sum Assured | Number | Coverage amount | Decimal (2 places) in RM |
+| Status | Single Select | Policy status | Active, Lapsed, Cancelled, Matured, Pending |
+| Beneficiary | Text | Beneficiary information | - |
+| Notes | Long Text | Policy-specific notes | - |
+
+---
+
+## 📱 CRITICAL: Phone Number Formatting Rules
+
+### Mandatory Format Standard
+**ALL phone numbers in the system MUST follow this exact format: 60123456789**
+
+### Format Requirements
+| Rule | Description | Example |
+|------|-------------|---------|
+| ✅ **Correct** | Numbers only, starts with 60, no separators | 60123456789 |
+| ❌ **No Plus Sign** | Never include + prefix | ~~+60123456789~~ |
+| ❌ **No Spaces** | Never include any spaces | ~~60 12 345 6789~~ |
+| ❌ **No Dashes** | Never include hyphens or dashes | ~~6012-345-6789~~ |
+
+### Conversion Rules
+When receiving phone numbers in ANY format, ALWAYS convert to standard format:
+- +60123456789 → 60123456789
+- 012-345 6789 → 60123456789
+- 0123456789 → 60123456789
+
+---
+
+## 🔧 Core Capabilities
+
+### 1. Daily Operations Assistant
+When agent says "Morning Brief" or "Start My Day", provide:
+- Today's scheduled meetings and calls
+- Overdue reminders needing immediate attention
+- Birthdays and anniversaries for today and next 7 days
+- Policy renewals due within 30 days
+- Hot opportunities requiring follow-up
+- Summary of pipeline value by stage
+
+### 2. Client Relationship Management
+- Provide complete client profiles on request
+- Analyze family composition for coverage gap analysis
+- Track interaction history and relationship trajectory
+- Suggest personalized touchpoints based on client data
+
+### 3. Sales Pipeline Management
+- Monitor pipeline health and suggest actions
+- Calculate weighted pipeline value
+- Identify stalled opportunities and recommend revival strategies
+
+### 4. Policy Portfolio Management
+- Generate client coverage summaries
+- Identify coverage gaps and upgrade opportunities
+- Track renewal dates and create renewal campaigns 60-30-15 days before
+
+---
+
+## 📋 Quick Commands Reference
+
+| Command | Action |
+|---------|--------|
+| "Morning brief" | Full daily briefing |
+| "Show my pipeline" | Pipeline summary by stage |
+| "Client profile [phone/name]" | Complete client dossier |
+| "Today's tasks" | List pending reminders for today |
+| "Birthdays this week" | Upcoming client birthdays |
+| "Renewals due" | Policies renewing in 30 days |
+| "Add new lead" | Start new lead creation flow |
+| "Log call with [name]" | Create interaction record |
+| "Inactive clients" | Clients with no contact in 30+ days |
+
+---
+
+## ⚙️ System Configuration
+
+### Default Settings
+- **Currency**: Malaysian Ringgit (RM)
+- **Date Format**: YYYY-MM-DD
+- **Time Zone**: Asia/Kuala_Lumpur (UTC+8)
+- **Language**: English (with BM/Chinese support)
+
+---
+
+*InsurePro AI - Your World-Class Insurance Assistant*
+*Created by Result Marketing*</pre>
+                        </div>
+                        <button class="btn btn-primary" style="margin-top: 1rem; background: #d946ef;" onclick="copyAiPrompt()">
+                            Copy AI Assistant Prompt
+                        </button>
+                    </div>
+
+                    <!-- Dashboard Link -->
+                    <div style="background: #e0f2fe; border: 2px solid #38bdf8; border-radius: 12px; padding: 1.5rem; margin-top: 1.5rem; text-align: center;">
+                        <h4 style="color: #0369a1; margin-bottom: 0.5rem;">Save Your Password!</h4>
+                        <p style="color: #0c4a6e; margin-bottom: 1rem; font-size: 0.9rem;">
+                            Please save your password shown above. You'll need it to access your dashboard anytime.
+                        </p>
+                        <a id="dashboardLink" href="#" class="btn btn-primary" style="display: inline-block; text-decoration: none; padding: 0.75rem 2rem;">
+                            Go to My Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://teable-mcp-server-production.up.railway.app';
+        const TEABLE_RM_URL = 'https://table.resultmarketing.asia';
+
+        let customer = null;
+        let selectedHosting = null;
+        let pollAttempts = 0;
+        let teableCredentials = null;
+        const MAX_POLL_ATTEMPTS = 30;
+
+        function getSessionId() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('session_id') || '';
+        }
+
+        function showState(stateId) {
+            document.querySelectorAll('.state').forEach(s => s.classList.remove('show'));
+            document.getElementById(stateId).classList.add('show');
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            showState('errorState');
+        }
+
+        // Update progress bar and text
+        function updateProgress(percent, text, step) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = text;
+
+            // Update steps
+            for (let i = 1; i <= 3; i++) {
+                const stepEl = document.getElementById('step' + i);
+                stepEl.classList.remove('active', 'done');
+                if (i < step) stepEl.classList.add('done');
+                else if (i === step) stepEl.classList.add('active');
+            }
+        }
+
+        // Poll for customer after Stripe webhook creates them
+        async function pollForCustomer() {
+            const sessionId = getSessionId();
+
+            if (!sessionId) {
+                showError('No payment session found. Please try again or contact support.');
+                return;
+            }
+
+            pollAttempts++;
+
+            // Update progress based on attempts
+            const progress = Math.min(pollAttempts * 5, 90);
+            const messages = [
+                'Verifying payment...',
+                'Confirming with Stripe...',
+                'Creating your account...',
+                'Almost there...',
+                'Finalizing setup...'
+            ];
+            const msgIndex = Math.min(Math.floor(pollAttempts / 5), messages.length - 1);
+            updateProgress(progress, messages[msgIndex], pollAttempts < 5 ? 1 : 2);
+
+            try {
+                const response = await fetch(`${API_BASE}/api/customers/by-session/${sessionId}`);
+
+                if (response.ok) {
+                    customer = await response.json();
+                    updateProgress(100, 'Ready!', 3);
+
+                    // Check if already provisioned - redirect to dashboard
+                    if (customer.status === 'active' || customer.onboarding_complete) {
+                        updateProgress(100, 'Redirecting to dashboard...', 3);
+                        setTimeout(() => {
+                            window.location.href = `dashboard.html?mcp_key=${customer.mcp_key}`;
+                        }, 1000);
+                        return;
+                    }
+
+                    // Not provisioned yet - show plan info then go to provisioning
+                    displayPlanInfo(customer);
+                    setTimeout(() => {
+                        showState('chooseHostState');
+                        // Auto-continue to provisioning after 2 seconds
+                        setTimeout(() => {
+                            showState('provisioningState');
+                            startAutoProvisioning();
+                        }, 2000);
+                    }, 500);
+                    return;
+                }
+
+                // Try to create from Stripe earlier (at attempt 3) and retry at 6, 10, 15
+                if (response.status === 404 && (pollAttempts === 3 || pollAttempts === 6 || pollAttempts === 10 || pollAttempts === 15)) {
+                    updateProgress(progress, 'Retrieving payment details...', 2);
+                    await tryCreateFromStripe(sessionId);
+                    return;
+                }
+
+                if (response.status === 404 && pollAttempts < MAX_POLL_ATTEMPTS) {
+                    setTimeout(pollForCustomer, 1000);
+                    return;
+                }
+
+                if (pollAttempts >= MAX_POLL_ATTEMPTS) {
+                    document.getElementById('whatsappSupport').href += sessionId;
+                    showError('Setup is taking longer than expected. Please contact us via WhatsApp and we\'ll help you right away!');
+                    return;
+                }
+
+                throw new Error('Failed to load customer');
+            } catch (error) {
+                console.error('Poll error:', error);
+                if (pollAttempts < MAX_POLL_ATTEMPTS) {
+                    setTimeout(pollForCustomer, 1000);
+                } else {
+                    document.getElementById('whatsappSupport').href += sessionId;
+                    showError('Something went wrong. Please contact us via WhatsApp!');
+                }
+            }
+        }
+
+        // Fallback: Try to create customer from Stripe session
+        async function tryCreateFromStripe(sessionId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/customers/from-stripe-session`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId })
+                });
+
+                if (response.ok) {
+                    customer = await response.json();
+                    updateProgress(100, 'Ready!', 3);
+                    // Show plan info then go to provisioning
+                    displayPlanInfo(customer);
+                    setTimeout(() => {
+                        showState('chooseHostState');
+                        setTimeout(() => {
+                            showState('provisioningState');
+                            startAutoProvisioning();
+                        }, 2000);
+                    }, 500);
+                    return;
+                }
+
+                // If create failed, log the error and continue polling
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Create from Stripe failed:', errorData);
+            } catch (e) {
+                console.error('Stripe fallback error:', e);
+            }
+
+            // Continue polling
+            setTimeout(pollForCustomer, 1000);
+        }
+
+        // Display plan info based on customer tier
+        function displayPlanInfo(customer) {
+            const tier = customer.tier || 'base';
+            const recordLimit = customer.record_limit || 250000;
+
+            // Update customer name
+            const nameEl = document.getElementById('customerName1');
+            if (nameEl) nameEl.textContent = customer.name || 'Customer';
+
+            // Plan details based on tier
+            const planDetails = {
+                base: {
+                    name: 'Base',
+                    tagline: 'Perfect for individual agents',
+                    rows: '250,000',
+                    support: 'WhatsApp Support',
+                    price: 'RM 299/year',
+                    badge: 'YOUR PLAN'
+                },
+                enterprise: {
+                    name: 'Enterprise',
+                    tagline: 'For team leaders & large networks',
+                    rows: '1,000,000',
+                    support: 'Direct WhatsApp Support',
+                    price: 'RM 498/year',
+                    badge: 'ENTERPRISE'
+                }
+            };
+
+            const plan = planDetails[tier] || planDetails.base;
+
+            // Update plan card
+            document.getElementById('planName').textContent = plan.name;
+            document.getElementById('planTagline').textContent = plan.tagline;
+            document.getElementById('planRows').textContent = plan.rows;
+            document.getElementById('planSupport').textContent = plan.support;
+            document.getElementById('planPrice').textContent = plan.price;
+            document.getElementById('planBadge').textContent = plan.badge;
+            document.getElementById('planSubtitle').textContent = `You selected the ${plan.name} plan. Auto-continuing to setup...`;
+
+            // Update card styling for enterprise
+            const planCard = document.getElementById('selectedPlanCard');
+            if (tier === 'enterprise') {
+                planCard.style.borderColor = '#d97706';
+                document.getElementById('planBadge').style.background = 'linear-gradient(135deg, #fbbf24 0%, #d97706 100%)';
+                document.getElementById('planBadge').style.color = '#000';
+            }
+        }
+
+        // Keep old function for backward compatibility
+        function selectHosting(type) {
+            selectedHosting = type;
+            document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('continueBtn').disabled = false;
+        }
+
+        function continueToSetup() {
+            // All plans now use auto-provisioning
+            showState('provisioningState');
+            startAutoProvisioning();
+        }
+
+        // Auto provisioning for Result Marketing hosted
+        async function startAutoProvisioning() {
+            try {
+                // Step 1: Create Teable account
+                updateProvStep(1, 'active');
+
+                const provResponse = await fetch(`${API_BASE}/api/provision-teable`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mcpKey: customer.mcp_key,
+                        email: customer.email,
+                        name: customer.name
+                    })
+                });
+
+                if (!provResponse.ok) {
+                    const err = await provResponse.json();
+                    throw new Error(err.error || 'Failed to create account');
+                }
+
+                const provData = await provResponse.json();
+                teableCredentials = provData;
+
+                updateProvStep(1, 'done');
+
+                // Step 2: Token created
+                updateProvStep(2, 'active');
+                await delay(800);
+                updateProvStep(2, 'done');
+
+                // Step 3: Connecting
+                updateProvStep(3, 'active');
+                await delay(800);
+                updateProvStep(3, 'done');
+
+                // Step 4: Finalizing
+                updateProvStep(4, 'active');
+                await delay(500);
+                updateProvStep(4, 'done');
+
+                // Update UI to show completion before redirect
+                document.querySelector('#provisioningState .success-banner h3').textContent = 'Setup Complete!';
+                document.querySelector('#provisioningState .success-banner p').textContent = 'Redirecting to your dashboard...';
+
+                // Short delay then redirect to dashboard
+                await delay(1000);
+                showFinalSuccess(true);
+
+            } catch (error) {
+                console.error('Provisioning error:', error);
+
+                // If already registered or any error, show success page
+                // (user can still use their MCP URL even if Teable account setup had issues)
+                if (error.message && error.message.includes('already registered')) {
+                    showFinalSuccess(false);
+                    return;
+                }
+
+                // For other errors, still show success with MCP URL but alert the user
+                updateProvStep(getCurrentProvStep(), 'error');
+                alert('Note: There was an issue creating your Teable account. Your MCP URL is still ready. Please contact support for Teable login assistance.');
+                showFinalSuccess(false);
+            }
+        }
+
+        function updateProvStep(stepNum, status) {
+            const step = document.getElementById('provStep' + stepNum);
+            step.className = 'prov-step ' + status;
+
+            const icon = step.querySelector('.icon');
+            if (status === 'done') {
+                icon.innerHTML = '&#10003;';
+            } else if (status === 'error') {
+                icon.innerHTML = '!';
+            }
+        }
+
+        function getCurrentProvStep() {
+            for (let i = 1; i <= 4; i++) {
+                const step = document.getElementById('provStep' + i);
+                if (step.classList.contains('active')) return i;
+            }
+            return 1;
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        // Manual setup (Teable.io)
+        function goToManualStep(step) {
+            // Hide all steps
+            document.getElementById('manualStep1').style.display = 'none';
+            document.getElementById('manualStep2').style.display = 'none';
+            document.getElementById('manualStep3').style.display = 'none';
+
+            // Show current step
+            document.getElementById('manualStep' + step).style.display = 'block';
+
+            // Update progress dots
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById('stepDot' + i);
+                dot.classList.remove('active', 'completed');
+                if (i < step) dot.classList.add('completed');
+                if (i === step) dot.classList.add('active');
+            }
+        }
+
+        function validateManualToken() {
+            const token = document.getElementById('apiToken').value;
+            const btn = document.getElementById('submitManualBtn');
+            btn.disabled = token.length < 30 || !token.startsWith('teable_');
+        }
+
+        async function submitManualToken() {
+            const token = document.getElementById('apiToken').value;
+            const btn = document.getElementById('submitManualBtn');
+
+            btn.textContent = 'Connecting...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/customers/${customer.mcp_key}/token`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        token: token,
+                        baseUrl: 'https://table.resultmarketing.asia'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to save');
+                }
+
+                showFinalSuccess(false);
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.textContent = 'Connect My Database';
+                btn.disabled = false;
+            }
+        }
+
+        function showFinalSuccess(hasNewCredentials) {
+            // Build dashboard URL with mcp_key for auto-login (include password if available)
+            let dashboardUrl = `dashboard.html?mcp_key=${customer.mcp_key}`;
+            if (hasNewCredentials && teableCredentials && teableCredentials.password) {
+                dashboardUrl += `&pwd=${encodeURIComponent(teableCredentials.password)}`;
+            }
+
+            // Redirect to dashboard after a short delay to show completion
+            setTimeout(() => {
+                window.location.href = dashboardUrl;
+            }, 1000);
+        }
+
+        function copyMcpUrl() {
+            const url = document.getElementById('mcpUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('URL copied to clipboard!');
+            });
+        }
+
+        function copyConfig() {
+            const config = document.getElementById('configJson').textContent;
+            navigator.clipboard.writeText(config).then(() => {
+                alert('Configuration copied to clipboard!');
+            });
+        }
+
+        function copyCrmPrompt() {
+            const prompt = document.getElementById('crmSetupPrompt').textContent;
+            navigator.clipboard.writeText(prompt).then(() => {
+                alert('CRM Setup Prompt copied! Paste this in Claude after connecting.');
+            });
+        }
+
+        function copyAiPrompt() {
+            const prompt = document.getElementById('aiAssistantPrompt').textContent;
+            navigator.clipboard.writeText(prompt).then(() => {
+                alert('AI Assistant Prompt copied! Paste this in Claude to activate InsurePro AI.');
+            });
+        }
+
+        function toggleClaudeDesktop() {
+            const content = document.getElementById('claudeDesktopContent');
+            const arrow = document.getElementById('claudeDesktopArrow');
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                arrow.textContent = '▲';
+            } else {
+                content.style.display = 'none';
+                arrow.textContent = '▼';
+            }
+        }
+
+        // Start
+        pollForCustomer();
+    </script>
+</body>
+</html>

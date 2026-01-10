@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Setup Your AI Connector - Result Marketing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .setup-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 550px;
+            overflow: hidden;
+        }
+
+        .setup-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+
+        .setup-header .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .setup-header .logo span {
+            color: #ffd700;
+        }
+
+        .setup-header p {
+            opacity: 0.9;
+        }
+
+        .setup-body {
+            padding: 2rem;
+        }
+
+        .welcome-message {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .welcome-message h2 {
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-message p {
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 2rem;
+            color: #dc3545;
+        }
+
+        .form-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-section label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-section input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-section .hint {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+
+        .help-accordion {
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            padding: 1rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .accordion-header:hover {
+            background: #f0f0f0;
+        }
+
+        .accordion-content {
+            padding: 0 1rem 1rem;
+            display: none;
+        }
+
+        .accordion-content.show {
+            display: block;
+        }
+
+        .accordion-content ol {
+            padding-left: 1.5rem;
+            color: #555;
+        }
+
+        .accordion-content li {
+            margin-bottom: 0.75rem;
+        }
+
+        .accordion-content a {
+            color: #667eea;
+        }
+
+        .accordion-content .scope-list {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .security-note {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: #e8f5e9;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .security-note .icon {
+            font-size: 1.5rem;
+        }
+
+        .security-note p {
+            font-size: 0.9rem;
+            color: #2e7d32;
+        }
+
+        /* Success State */
+        .success-state {
+            display: none;
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .success-state.show {
+            display: block;
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .success-state h2 {
+            color: #28a745;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-state p {
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+
+        .mcp-url-box {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .mcp-url-box label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .mcp-url-box .url {
+            font-family: monospace;
+            font-size: 0.8rem;
+            background: white;
+            padding: 0.75rem;
+            border-radius: 6px;
+            word-break: break-all;
+            margin-bottom: 0.75rem;
+        }
+
+        .mcp-url-box button {
+            width: 100%;
+        }
+
+        .form-state {
+            display: block;
+        }
+
+        .form-state.hide {
+            display: none;
+        }
+
+        .config-instructions {
+            background: #fff3cd;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .config-instructions h4 {
+            color: #856404;
+            margin-bottom: 0.5rem;
+        }
+
+        .config-instructions pre {
+            background: #fff;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-card">
+        <div class="setup-header">
+            <div class="logo">Result<span>Marketing</span> Connector</div>
+            <p>Connect your CRM to AI</p>
+        </div>
+
+        <div class="setup-body">
+            <!-- Loading State -->
+            <div class="loading" id="loadingState">
+                Loading your setup...
+            </div>
+
+            <!-- Error State -->
+            <div class="error-message" id="errorState" style="display: none;">
+                <h3>Invalid Setup Link</h3>
+                <p>This link is invalid or has expired. Please contact support.</p>
+            </div>
+
+            <!-- Form State -->
+            <div class="form-state hide" id="formState">
+                <div class="welcome-message">
+                    <h2>Welcome, <span id="customerName">Customer</span>!</h2>
+                    <p>Let's connect your CRM to AI. Just paste your Airtable token below.</p>
+                </div>
+
+                <div class="form-section">
+                    <label>Your Personal Access Token (PAT)</label>
+                    <input
+                        type="password"
+                        id="patToken"
+                        placeholder="pat1234567890.abcdefghijklmnop..."
+                        oninput="validateInput()"
+                    >
+                    <p class="hint">Your token starts with "pat" and contains a dot (.)</p>
+                </div>
+
+                <!-- Help Accordion -->
+                <div class="help-accordion">
+                    <div class="accordion-header" onclick="toggleAccordion()">
+                        <span>How do I get my Personal Access Token?</span>
+                        <span id="accordionIcon">+</span>
+                    </div>
+                    <div class="accordion-content" id="accordionContent">
+                        <ol>
+                            <li>
+                                Go to <a href="https://airtable.com/create/tokens/new" target="_blank">airtable.com/create/tokens</a>
+                            </li>
+                            <li>
+                                Click <strong>"Create new token"</strong>
+                            </li>
+                            <li>
+                                Give it a name like <strong>"AI Connector"</strong>
+                            </li>
+                            <li>
+                                Under <strong>"Scopes"</strong>, add these:
+                                <div class="scope-list">
+                                    data.records:read<br>
+                                    data.records:write<br>
+                                    schema.bases:read
+                                </div>
+                            </li>
+                            <li>
+                                Under <strong>"Access"</strong>, select the bases you want AI to access
+                            </li>
+                            <li>
+                                Click <strong>"Create token"</strong> and copy it immediately (starts with "pat...")
+                            </li>
+                        </ol>
+                        <p style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border-radius: 6px; color: #856404; font-size: 0.85rem;">
+                            <strong>Important:</strong> The token is only shown once! Copy it immediately after creating.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="security-note">
+                    <span class="icon">🔒</span>
+                    <p>
+                        <strong>Your data stays private.</strong> We encrypt your token and never store your actual CRM data.
+                        The AI only accesses your data when you ask it questions.
+                    </p>
+                </div>
+
+                <button class="btn btn-primary" id="submitBtn" disabled onclick="submitToken()">
+                    Connect My CRM
+                </button>
+            </div>
+
+            <!-- Success State -->
+            <div class="success-state" id="successState">
+                <div class="success-icon">✅</div>
+                <h2>Successfully Connected!</h2>
+                <p>Your CRM is now connected. Use this URL in Claude Desktop:</p>
+
+                <div class="mcp-url-box">
+                    <label>Your MCP Connection URL</label>
+                    <div class="url" id="mcpUrl"></div>
+                    <button class="btn btn-primary" onclick="copyMcpUrl()">Copy URL</button>
+                </div>
+
+                <div class="config-instructions">
+                    <h4>Claude Desktop Setup</h4>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 0.5rem;">
+                        Add this to your claude_desktop_config.json:
+                    </p>
+                    <pre id="configJson"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://connector.resultmarketing.asia';
+        let mcpKey = '';
+
+        // Get mcp_key from URL
+        function getMcpKeyFromUrl() {
+            const path = window.location.pathname;
+            const match = path.match(/\/setup\/([a-f0-9]+)/);
+            if (match) return match[1];
+
+            // Also check query param
+            const params = new URLSearchParams(window.location.search);
+            return params.get('key') || params.get('k') || '';
+        }
+
+        // Load customer info on page load
+        async function loadCustomer() {
+            mcpKey = getMcpKeyFromUrl();
+
+            if (!mcpKey) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/api/setup/${mcpKey}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Invalid link');
+                }
+
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('formState').classList.remove('hide');
+                document.getElementById('customerName').textContent = data.name;
+
+                // If already configured, show success
+                if (data.hasPatConfigured) {
+                    showSuccess(`${API_BASE}/mcp/${mcpKey}/mcp`);
+                }
+            } catch (error) {
+                document.getElementById('loadingState').style.display = 'none';
+                document.getElementById('errorState').style.display = 'block';
+            }
+        }
+
+        function validateInput() {
+            const token = document.getElementById('patToken').value;
+            const submitBtn = document.getElementById('submitBtn');
+
+            // Must start with "pat" and contain a dot
+            if (token.startsWith('pat') && token.includes('.') && token.length >= 50) {
+                submitBtn.disabled = false;
+            } else {
+                submitBtn.disabled = true;
+            }
+        }
+
+        function toggleAccordion() {
+            const content = document.getElementById('accordionContent');
+            const icon = document.getElementById('accordionIcon');
+
+            if (content.classList.contains('show')) {
+                content.classList.remove('show');
+                icon.textContent = '+';
+            } else {
+                content.classList.add('show');
+                icon.textContent = '−';
+            }
+        }
+
+        async function submitToken() {
+            const token = document.getElementById('patToken').value;
+            const btn = document.getElementById('submitBtn');
+
+            btn.textContent = 'Connecting...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/setup/${mcpKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pat: token })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to save');
+                }
+
+                showSuccess(data.mcpUrl);
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.textContent = 'Connect My CRM';
+                btn.disabled = false;
+            }
+        }
+
+        function showSuccess(mcpUrl) {
+            document.getElementById('formState').classList.add('hide');
+            document.getElementById('successState').classList.add('show');
+            document.getElementById('mcpUrl').textContent = mcpUrl;
+
+            const config = {
+                mcpServers: {
+                    "resultmarketing-ai": {
+                        command: "npx",
+                        args: ["-y", "mcp-remote", mcpUrl]
+                    }
+                }
+            };
+            document.getElementById('configJson').textContent = JSON.stringify(config, null, 2);
+        }
+
+        function copyMcpUrl() {
+            const url = document.getElementById('mcpUrl').textContent;
+            navigator.clipboard.writeText(url);
+            alert('URL copied to clipboard!');
+        }
+
+        // Load on page ready
+        loadCustomer();
+    </script>
+</body>
+</html>

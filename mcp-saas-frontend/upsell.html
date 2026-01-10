@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Upgrade Your Database - Result Marketing</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f6f9fc 0%, #e9f2ff 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .upsell-container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        .success-banner {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 16px 16px 0 0;
+            text-align: center;
+        }
+
+        .success-banner .icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .success-banner h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .success-banner p {
+            opacity: 0.9;
+        }
+
+        .upsell-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 0 0 16px 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .current-plan {
+            background: #f0fdf4;
+            border: 2px solid #10b981;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .current-plan h3 {
+            color: #059669;
+            margin-bottom: 0.5rem;
+        }
+
+        .current-plan .records {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .current-plan .records span {
+            font-size: 1rem;
+            color: #666;
+        }
+
+        .upsell-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .upsell-header h2 {
+            font-size: 1.5rem;
+            color: #1a1a2e;
+            margin-bottom: 0.5rem;
+        }
+
+        .upsell-header p {
+            color: #666;
+        }
+
+        .pricing-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .pricing-card {
+            border: 2px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .pricing-card:hover {
+            border-color: #f59e0b;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .pricing-card.popular {
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+        }
+
+        .pricing-card.popular::before {
+            content: 'BEST VALUE';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            padding: 0.25rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.3rem;
+            color: #1a1a2e;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-card .records {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 0.25rem;
+        }
+
+        .pricing-card .records-label {
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .pricing-card .price {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #f59e0b;
+        }
+
+        .pricing-card .price span {
+            font-size: 1rem;
+            color: #666;
+            font-weight: normal;
+        }
+
+        .pricing-card .total {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+
+        .pricing-card .features {
+            list-style: none;
+            margin-bottom: 1.5rem;
+            text-align: left;
+        }
+
+        .pricing-card .features li {
+            padding: 0.5rem 0;
+            color: #444;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pricing-card .features li::before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+        }
+
+        .btn-upgrade {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-upgrade.primary {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+
+        .btn-upgrade.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-upgrade.secondary {
+            background: #e5e7eb;
+            color: #666;
+        }
+
+        .btn-upgrade.secondary:hover {
+            background: #d1d5db;
+        }
+
+        .skip-section {
+            text-align: center;
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .skip-section p {
+            color: #666;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-skip {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 1rem;
+            cursor: pointer;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn-skip:hover {
+            background: #f8f9fa;
+            color: #1a1a2e;
+        }
+
+        .comparison {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .comparison h4 {
+            color: #1a1a2e;
+            margin-bottom: 1rem;
+            text-align: center;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .comparison-table th {
+            color: #666;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .comparison-table td {
+            color: #1a1a2e;
+        }
+
+        .comparison-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        @media (max-width: 768px) {
+            .pricing-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="upsell-container">
+        <div class="success-banner">
+            <div class="icon">🎉</div>
+            <h1>Your AI Connector is Ready!</h1>
+            <p>You can now query your Teable database using natural language with Claude AI</p>
+        </div>
+
+        <div class="upsell-content">
+            <div class="current-plan">
+                <h3>Your Current Plan</h3>
+                <div class="records">5,000 <span>records included FREE</span></div>
+                <p style="color: #666; margin-top: 0.5rem;">on table.resultmarketing.app</p>
+            </div>
+
+            <div class="upsell-header">
+                <h2>Need More Storage?</h2>
+                <p>Upgrade your hosted database for more records</p>
+            </div>
+
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <h3>Pro Plan</h3>
+                    <div class="records">250,000</div>
+                    <div class="records-label">records</div>
+                    <div class="price">+RM99 <span>/year</span></div>
+                    <div class="total">Total: RM398/year</div>
+                    <ul class="features">
+                        <li>250K records on hosted Teable</li>
+                        <li>All AI connector features</li>
+                        <li>Priority email support</li>
+                        <li>Automatic backups</li>
+                    </ul>
+                    <button class="btn-upgrade primary" onclick="upgradeToTier('pro')">
+                        Upgrade to Pro
+                    </button>
+                </div>
+
+                <div class="pricing-card popular">
+                    <h3>Enterprise Plan</h3>
+                    <div class="records">1,000,000</div>
+                    <div class="records-label">records</div>
+                    <div class="price">+RM199 <span>/year</span></div>
+                    <div class="total">Total: RM498/year</div>
+                    <ul class="features">
+                        <li>1 million records on hosted Teable</li>
+                        <li>All AI connector features</li>
+                        <li>Priority support + WhatsApp</li>
+                        <li>Automatic backups</li>
+                        <li>Custom integrations available</li>
+                    </ul>
+                    <button class="btn-upgrade primary" onclick="upgradeToTier('enterprise')">
+                        Upgrade to Enterprise
+                    </button>
+                </div>
+            </div>
+
+            <div class="comparison">
+                <h4>Plan Comparison</h4>
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Free (Current)</th>
+                            <th>Pro</th>
+                            <th>Enterprise</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Records</td>
+                            <td>5,000</td>
+                            <td>250,000</td>
+                            <td>1,000,000</td>
+                        </tr>
+                        <tr>
+                            <td>AI Queries</td>
+                            <td>Unlimited</td>
+                            <td>Unlimited</td>
+                            <td>Unlimited</td>
+                        </tr>
+                        <tr>
+                            <td>Support</td>
+                            <td>Email</td>
+                            <td>Priority Email</td>
+                            <td>WhatsApp + Email</td>
+                        </tr>
+                        <tr>
+                            <td>Price/Year</td>
+                            <td>RM299</td>
+                            <td>RM398</td>
+                            <td>RM498</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="skip-section">
+                <p>You can always upgrade later from your dashboard</p>
+                <button class="btn-skip" onclick="skipToDashboard()">
+                    Continue with Free Plan (5,000 records) →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://teable-mcp-server-production.up.railway.app';
+
+        async function upgradeToTier(tier) {
+            const btn = event.target;
+            btn.textContent = 'Redirecting...';
+            btn.disabled = true;
+
+            try {
+                // Get user email from Supabase session
+                const SUPABASE_URL = 'https://hoiyubwenbscyhawetyd.supabase.co';
+                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaXl1YndlbmJzY3loYXdldHlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTA4NjAsImV4cCI6MjA4MjY4Njg2MH0.9WvCPqOZ1-sV3hJqcyaf-Aaj3Zot9SJ9hd2zyxHmSfY';
+
+                // Load Supabase SDK dynamically if not loaded
+                if (!window.supabase) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data: { session } } = await client.auth.getSession();
+
+                if (!session) {
+                    alert('Please log in first');
+                    window.location.href = 'app-login.html';
+                    return;
+                }
+
+                const email = session.user.email;
+
+                // Call upgrade endpoint
+                const response = await fetch(`${API_BASE}/api/checkout/upgrade`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, tier })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create upgrade session');
+                }
+
+                // Redirect to Stripe Checkout
+                window.location.href = data.url;
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.textContent = tier === 'pro' ? 'Upgrade to Pro' : 'Upgrade to Enterprise';
+                btn.disabled = false;
+            }
+        }
+
+        function skipToDashboard() {
+            window.location.href = 'app-dashboard.html';
+        }
+
+        // Check if user is logged in
+        async function checkAuth() {
+            try {
+                const SUPABASE_URL = 'https://hoiyubwenbscyhawetyd.supabase.co';
+                const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaXl1YndlbmJzY3loYXdldHlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTA4NjAsImV4cCI6MjA4MjY4Njg2MH0.9WvCPqOZ1-sV3hJqcyaf-Aaj3Zot9SJ9hd2zyxHmSfY';
+
+                // Load Supabase SDK
+                if (!window.supabase) {
+                    await new Promise((resolve, reject) => {
+                        const script = document.createElement('script');
+                        script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                    });
+                }
+
+                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                const { data: { session } } = await client.auth.getSession();
+
+                if (!session) {
+                    window.location.href = 'app-login.html';
+                }
+            } catch (e) {
+                console.log('Auth check error:', e);
+            }
+        }
+
+        checkAuth();
+    </script>
+</body>
+</html>

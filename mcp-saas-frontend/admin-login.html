@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Admin Login - Result Marketing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 2rem;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .login-header {
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            padding: 2.5rem 2rem;
+            text-align: center;
+            color: white;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .logo span { color: #fbbf24; }
+
+        .login-header p {
+            opacity: 0.9;
+            font-size: 0.95rem;
+        }
+
+        .admin-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.5rem;
+        }
+
+        .login-body {
+            padding: 2.5rem 2rem;
+        }
+
+        .welcome-text {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .welcome-text h2 {
+            color: #1a1a2e;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-text p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #dc2626;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .error-message {
+            background: #fef2f2;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .success-message.show {
+            display: block;
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+
+        .back-link a {
+            color: #dc2626;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        .security-note {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #fef3c7;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            color: #92400e;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">Result<span>Marketing</span></div>
+                <p>Admin Dashboard</p>
+                <div class="admin-badge">Staff Only</div>
+            </div>
+
+            <div class="login-body">
+                <div class="welcome-text">
+                    <h2>Admin Login</h2>
+                    <p>Sign in to manage customers and payments</p>
+                </div>
+
+                <div class="error-message" id="errorMessage"></div>
+                <div class="success-message" id="successMessage"></div>
+
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="email" placeholder="admin@resultmarketing.asia">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" id="password" placeholder="Your password">
+                    </div>
+                    <button type="button" class="btn-primary" id="submitBtn">Sign In</button>
+                </form>
+
+                <div class="security-note">
+                    This area is restricted to authorized personnel only.
+                </div>
+
+                <div class="back-link">
+                    <a href="https://resultmarketing.asia">Back to Result Marketing</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Configuration
+        var SUPABASE_URL = 'https://hoiyubwenbscyhawetyd.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaXl1YndlbmJzY3loYXdldHlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTA4NjAsImV4cCI6MjA4MjY4Njg2MH0.9WvCPqOZ1-sV3hJqcyaf-Aaj3Zot9SJ9hd2zyxHmSfY';
+        var API_BASE = 'https://teable-mcp-server-production.up.railway.app';
+
+        var supabaseClient = null;
+
+        function initSupabase() {
+            if (!supabaseClient) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            return supabaseClient;
+        }
+
+        function showError(message) {
+            var errorEl = document.getElementById('errorMessage');
+            var successEl = document.getElementById('successMessage');
+            successEl.classList.remove('show');
+
+            if (message) {
+                errorEl.textContent = message;
+                errorEl.classList.add('show');
+            } else {
+                errorEl.classList.remove('show');
+            }
+        }
+
+        function showSuccess(message) {
+            var successEl = document.getElementById('successMessage');
+            var errorEl = document.getElementById('errorMessage');
+            errorEl.classList.remove('show');
+
+            if (message) {
+                successEl.textContent = message;
+                successEl.classList.add('show');
+            } else {
+                successEl.classList.remove('show');
+            }
+        }
+
+        async function handleLogin() {
+            var email = document.getElementById('email').value.trim();
+            var password = document.getElementById('password').value;
+            var btn = document.getElementById('submitBtn');
+
+            showError('');
+            showSuccess('');
+
+            if (!email) {
+                showError('Please enter your email');
+                return;
+            }
+
+            if (!password) {
+                showError('Please enter your password');
+                return;
+            }
+
+            btn.disabled = true;
+            btn.textContent = 'Signing in...';
+
+            try {
+                // Use backend admin login endpoint
+                var loginResponse = await fetch(API_BASE + '/api/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email: email, password: password })
+                });
+
+                var loginData = await loginResponse.json();
+
+                if (!loginResponse.ok) {
+                    showError(loginData.error || 'Invalid credentials');
+                    btn.textContent = 'Sign In';
+                    btn.disabled = false;
+                    return;
+                }
+
+                // Store admin session
+                localStorage.setItem('adminToken', loginData.token);
+                localStorage.setItem('adminUser', JSON.stringify(loginData.admin));
+
+                showSuccess('Login successful! Redirecting...');
+                setTimeout(function() {
+                    window.location.href = 'admin-dashboard.html';
+                }, 1000);
+
+            } catch (err) {
+                console.error('Login error:', err);
+                showError(err.message || 'Failed to sign in. Please try again.');
+                btn.textContent = 'Sign In';
+                btn.disabled = false;
+            }
+        }
+
+        async function checkAuth() {
+            try {
+                var token = localStorage.getItem('adminToken');
+                if (!token) return;
+
+                // Verify still an admin
+                var adminCheck = await fetch(API_BASE + '/api/admin/me', {
+                    headers: {
+                        'Authorization': 'Bearer ' + token
+                    }
+                });
+
+                if (adminCheck.ok) {
+                    window.location.href = 'admin-dashboard.html';
+                } else {
+                    // Token invalid, clear it
+                    localStorage.removeItem('adminToken');
+                    localStorage.removeItem('adminUser');
+                }
+            } catch (err) {
+                console.log('Auth check error:', err);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var btn = document.getElementById('submitBtn');
+            if (btn) {
+                btn.addEventListener('click', handleLogin);
+            }
+
+            // Allow Enter key to submit
+            document.getElementById('password').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    handleLogin();
+                }
+            });
+
+            checkAuth();
+        });
+    </script>
+</body>
+</html>

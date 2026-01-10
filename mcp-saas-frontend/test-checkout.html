@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Checkout - Admin Only</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+            color: white;
+        }
+        .container {
+            max-width: 500px;
+            width: 100%;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            color: #92400e;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 0.5rem;
+        }
+        .subtitle {
+            text-align: center;
+            color: #9ca3af;
+            margin-bottom: 2rem;
+        }
+        .test-card {
+            background: #2d2d4a;
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+        .test-card h3 {
+            margin-bottom: 1rem;
+            color: #a5b4fc;
+        }
+        .test-card p {
+            color: #9ca3af;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-green {
+            background: #10b981;
+            color: white;
+        }
+        .test-info {
+            background: #1e293b;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .test-info h4 {
+            color: #60a5fa;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+        .test-info code {
+            display: block;
+            background: #0f172a;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #e2e8f0;
+            word-break: break-all;
+        }
+        .checklist {
+            list-style: none;
+            margin-top: 1rem;
+        }
+        .checklist li {
+            padding: 0.5rem 0;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .checklist li::before {
+            content: "[ ]";
+            color: #6b7280;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="warning">
+            <strong>ADMIN TEST PAGE</strong> - Do not share this URL
+        </div>
+
+        <h1>Test Checkout</h1>
+        <p class="subtitle">Test the full payment flow</p>
+
+        <div class="test-card">
+            <h3>Stripe Payment Link Test</h3>
+            <p>This uses the same Payment Link as the production site. Use Stripe test card.</p>
+
+            <a href="https://buy.stripe.com/cNibJ069Y4g1aFgaaw2Nq03" class="btn btn-primary">
+                Test Payment - RM299
+            </a>
+
+            <div class="test-info">
+                <h4>Test Card Details:</h4>
+                <code>
+                    Card: 4242 4242 4242 4242<br>
+                    Exp: Any future date (e.g., 12/28)<br>
+                    CVC: Any 3 digits (e.g., 123)
+                </code>
+            </div>
+        </div>
+
+        <div class="test-card">
+            <h3>What to Check</h3>
+            <ul class="checklist">
+                <li>Payment completes successfully</li>
+                <li>Redirects to payment-success.html</li>
+                <li>Customer created in Supabase</li>
+                <li>Welcome email received (if SPF verified)</li>
+                <li>Auto-provisioning works</li>
+                <li>MCP URL is generated</li>
+            </ul>
+        </div>
+
+        <div class="test-card">
+            <h3>Direct to Success Page (Skip Payment)</h3>
+            <p>Test the success page with an existing session ID:</p>
+            <a href="payment-success.html?session_id=cs_test_a1WSBUMPJaUQjxTl2NXrmVAyFwYdxKWKmscwHIEBVjuxlB1kn6exxYcq67" class="btn btn-green">
+                Test Success Page (Existing Customer)
+            </a>
+        </div>
+    </div>
+</body>
+</html>

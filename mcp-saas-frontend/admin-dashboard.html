@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Admin Dashboard - Result Marketing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .header .logo span { color: #fbbf24; }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .admin-info {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .btn-logout {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .btn-logout:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-card h3 {
+            font-size: 0.85rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #1a1a2e;
+        }
+
+        .stat-card.warning {
+            border-left: 4px solid #f59e0b;
+        }
+
+        .stat-card.success {
+            border-left: 4px solid #10b981;
+        }
+
+        .stat-card.danger {
+            border-left: 4px solid #dc2626;
+        }
+
+        /* Alert Box */
+        .alert-box {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .alert-box.hidden {
+            display: none;
+        }
+
+        .alert-box .alert-text {
+            color: #92400e;
+            font-weight: 500;
+        }
+
+        .alert-box .btn-view {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #666;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+        }
+
+        .tab-btn.active {
+            color: #dc2626;
+            border-bottom-color: #dc2626;
+        }
+
+        .tab-btn:hover {
+            color: #1a1a2e;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Section Card */
+        .section-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            overflow: hidden;
+        }
+
+        .section-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-header h2 {
+            font-size: 1.1rem;
+            color: #1a1a2e;
+        }
+
+        .section-header .search-box {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .section-header input {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            width: 250px;
+        }
+
+        .section-header select {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        /* Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th {
+            text-align: left;
+            padding: 1rem 1.5rem;
+            background: #f9fafb;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .data-table td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.95rem;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover {
+            background: #f9fafb;
+        }
+
+        /* Status Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-active { background: #d1fae5; color: #065f46; }
+        .badge-pending { background: #fef3c7; color: #92400e; }
+        .badge-suspended { background: #fee2e2; color: #991b1b; }
+        .badge-paid { background: #d1fae5; color: #065f46; }
+        .badge-new { background: #ede9fe; color: #6d28d9; }
+        .badge-contacted { background: #dbeafe; color: #1d4ed8; }
+        .badge-converted { background: #d1fae5; color: #065f46; }
+        .badge-not-interested { background: #f3f4f6; color: #6b7280; }
+
+        /* Action Buttons */
+        .btn-action {
+            padding: 0.4rem 0.8rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .btn-view {
+            background: #e0e7ff;
+            color: #3730a3;
+        }
+
+        .btn-provision {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .btn-copy {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-action:hover {
+            opacity: 0.8;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #666;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.hidden {
+            display: none;
+        }
+
+        .modal {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            font-size: 1.2rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .detail-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .detail-value {
+            font-weight: 500;
+            color: #1a1a2e;
+        }
+
+        .modal-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+
+        .btn-primary {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-secondary {
+            background: #f3f4f6;
+            color: #374151;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #1a1a2e;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            z-index: 1001;
+            display: none;
+        }
+
+        .toast.show {
+            display: block;
+        }
+
+        .toast.success {
+            background: #065f46;
+        }
+
+        .toast.error {
+            background: #991b1b;
+        }
+
+        /* Provisioning Steps (copied from payment-success.html) */
+        .provisioning-container {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 500px;
+            color: white;
+        }
+
+        .provisioning-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .provisioning-header .gear-icon {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            animation: spin 2s linear infinite;
+        }
+
+        .provisioning-header h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .provisioning-header p {
+            color: #9ca3af;
+            font-size: 0.9rem;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .provisioning-steps {
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .prov-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .prov-step:last-child {
+            border-bottom: none;
+        }
+
+        .prov-step .icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .prov-step.pending .icon {
+            background: rgba(255,255,255,0.1);
+            color: #9ca3af;
+        }
+
+        .prov-step.active .icon {
+            background: #fef3c7;
+            color: #d97706;
+            animation: pulse 1s infinite;
+        }
+
+        .prov-step.done .icon {
+            background: #d1fae5;
+            color: #10b981;
+        }
+
+        .prov-step.error .icon {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .prov-step span {
+            color: #e5e5e5;
+            font-size: 0.95rem;
+        }
+
+        .prov-step.pending span {
+            color: #9ca3af;
+        }
+
+        .prov-step.done span {
+            color: #10b981;
+        }
+
+        .prov-step.error span {
+            color: #dc2626;
+        }
+
+        .provisioning-error {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: rgba(220, 38, 38, 0.1);
+            border: 1px solid rgba(220, 38, 38, 0.3);
+            border-radius: 8px;
+            color: #fca5a5;
+            font-size: 0.9rem;
+        }
+
+        .provisioning-error button {
+            margin-top: 0.75rem;
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .provisioning-error button:hover {
+            background: #b91c1c;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">Result<span>Marketing</span> Admin</div>
+        <div class="header-right">
+            <span class="admin-info" id="adminInfo">Loading...</span>
+            <button class="btn-logout" onclick="handleLogout()">Logout</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <!-- Stats -->
+        <div class="stats-grid">
+            <div class="stat-card success">
+                <h3>Total Customers</h3>
+                <div class="value" id="statTotal">-</div>
+            </div>
+            <div class="stat-card success">
+                <h3>Active</h3>
+                <div class="value" id="statActive">-</div>
+            </div>
+            <div class="stat-card warning">
+                <h3>Pending Setup</h3>
+                <div class="value" id="statPending">-</div>
+            </div>
+            <div class="stat-card danger" id="orphanedCard">
+                <h3>Orphaned Payments</h3>
+                <div class="value" id="statOrphaned">-</div>
+            </div>
+            <div class="stat-card" style="border-left: 4px solid #8b5cf6;">
+                <h3>New Leads</h3>
+                <div class="value" id="statNewLeads">-</div>
+            </div>
+        </div>
+
+        <!-- Alert for orphaned payments -->
+        <div class="alert-box hidden" id="orphanedAlert">
+            <span class="alert-text"><strong id="orphanedCount">0</strong> payments have no customer account - click to provision</span>
+            <button class="btn-view" onclick="showTab('orphaned')">View & Provision</button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('customers')">Customers</button>
+            <button class="tab-btn" onclick="showTab('leads')">Leads</button>
+            <button class="tab-btn" onclick="showTab('payments')">Stripe Payments</button>
+            <button class="tab-btn" onclick="showTab('orphaned')">Orphaned Payments</button>
+            <button class="tab-btn" onclick="showTab('create')" style="background: #10b981; color: white; border-radius: 6px;">+ Create Account</button>
+        </div>
+
+        <!-- Customers Tab -->
+        <div class="tab-content active" id="tab-customers">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2>Customers</h2>
+                    <div class="search-box">
+                        <input type="text" id="customerSearch" placeholder="Search by name or email..." onkeyup="searchCustomers()">
+                        <select id="statusFilter" onchange="loadCustomers()">
+                            <option value="">All Status</option>
+                            <option value="active">Active</option>
+                            <option value="pending">Pending</option>
+                            <option value="suspended">Suspended</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="customersTableContainer">
+                    <div class="loading">Loading customers...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Leads Tab -->
+        <div class="tab-content" id="tab-leads">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2>Leads</h2>
+                    <div class="search-box">
+                        <select id="leadStatusFilter" onchange="loadLeads()">
+                            <option value="">All Status</option>
+                            <option value="new">New</option>
+                            <option value="contacted">Contacted</option>
+                            <option value="converted">Converted</option>
+                            <option value="not_interested">Not Interested</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="leadsTableContainer">
+                    <div class="loading">Loading leads...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payments Tab -->
+        <div class="tab-content" id="tab-payments">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2>Recent Stripe Payments</h2>
+                </div>
+                <div id="paymentsTableContainer">
+                    <div class="loading">Loading payments...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Orphaned Payments Tab -->
+        <div class="tab-content" id="tab-orphaned">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2>Orphaned Payments (No Customer Record)</h2>
+                </div>
+                <div id="orphanedTableContainer">
+                    <div class="loading">Loading orphaned payments...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Account Tab -->
+        <div class="tab-content" id="tab-create">
+            <div class="section-card">
+                <div class="section-header">
+                    <h2>Create Account</h2>
+                </div>
+                <div style="padding: 2rem;">
+
+                    <!-- State 1: Form (shown by default) -->
+                    <div id="createFormState">
+                        <p style="color: #666; margin-bottom: 1.5rem;">Create a new customer account with auto-provisioned Teable credentials.</p>
+
+                        <div style="max-width: 400px;">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Name</label>
+                                <input type="text" id="createName" placeholder="Customer name" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 1rem;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Email</label>
+                                <input type="email" id="createEmail" placeholder="customer@example.com" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 1rem;">
+                            </div>
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Tier</label>
+                                <select id="createTier" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 1rem; background: white;">
+                                    <option value="free">Free (50,000 records)</option>
+                                    <option value="base">Base (100,000 records) - RM299/year</option>
+                                    <option value="pro">Pro (250,000 records) - RM599/year</option>
+                                    <option value="enterprise">Enterprise (1,000,000 records) - RM999/year</option>
+                                </select>
+                            </div>
+                            <button onclick="createAccount()" class="btn-primary" id="createAccountBtn" style="width: 100%;">Create Account</button>
+                        </div>
+                    </div>
+
+                    <!-- State 2: Provisioning (same UI as payment-success.html) -->
+                    <div id="createProvisioningState" style="display: none;">
+                        <div class="provisioning-container">
+                            <div class="provisioning-header">
+                                <div class="gear-icon">&#9881;</div>
+                                <h3>Setting Up Account</h3>
+                                <p id="provisioningEmail">Please wait while we create the Teable account...</p>
+                            </div>
+
+                            <div class="provisioning-steps">
+                                <div class="prov-step pending" id="adminProvStep1">
+                                    <div class="icon">1</div>
+                                    <span>Creating customer record...</span>
+                                </div>
+                                <div class="prov-step pending" id="adminProvStep2">
+                                    <div class="icon">2</div>
+                                    <span>Creating Teable account...</span>
+                                </div>
+                                <div class="prov-step pending" id="adminProvStep3">
+                                    <div class="icon">3</div>
+                                    <span>Generating secure access token...</span>
+                                </div>
+                                <div class="prov-step pending" id="adminProvStep4">
+                                    <div class="icon">4</div>
+                                    <span>Finalizing setup...</span>
+                                </div>
+                            </div>
+
+                            <!-- Error with retry button (hidden initially) -->
+                            <div id="provisioningErrorBox" class="provisioning-error" style="display: none;">
+                                <p id="provisioningErrorMessage"></p>
+                                <button onclick="retryProvisioning()">Retry Provisioning</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- State 3: Success Result -->
+                    <div id="createResultBox" style="display: none; margin-top: 0; padding: 1.5rem; background: #d1fae5; border-radius: 12px; max-width: 600px;">
+                        <h3 style="color: #065f46; margin-bottom: 1rem;">Account Created Successfully!</h3>
+                        <div style="background: white; border-radius: 8px; padding: 1rem;">
+                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;">
+                                <span style="color: #666;">Teable URL:</span>
+                                <span id="resultTeableUrl" style="font-weight: 600;"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;">
+                                <span style="color: #666;">Email:</span>
+                                <span id="resultEmail" style="font-weight: 600;"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb;">
+                                <span style="color: #666;">Password:</span>
+                                <span id="resultPassword" style="font-weight: 600; font-family: monospace;"></span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                                <span style="color: #666;">Tier:</span>
+                                <span id="resultTier" style="font-weight: 600;"></span>
+                            </div>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <p style="color: #065f46; font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Dashboard Link (share with customer):</strong></p>
+                            <input type="text" id="resultDashboardUrl" readonly style="width: 100%; padding: 0.5rem; border: 1px solid #10b981; border-radius: 6px; font-size: 0.85rem; background: #ecfdf5;">
+                            <button onclick="copyDashboardUrl()" style="margin-top: 0.5rem; background: #10b981; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Copy Dashboard Link</button>
+                        </div>
+                        <button onclick="resetCreateForm()" style="margin-top: 1rem; background: #1a1a2e; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-weight: 500;">Create Another Account</button>
+                    </div>
+
+                    <!-- Error Box (hidden initially) -->
+                    <div id="createErrorBox" style="display: none; margin-top: 2rem; padding: 1.5rem; background: #fee2e2; border-radius: 12px; max-width: 600px;">
+                        <h3 style="color: #991b1b; margin-bottom: 0.5rem;">Error</h3>
+                        <p id="createErrorMessage" style="color: #991b1b;"></p>
+                        <button onclick="resetCreateForm()" style="margin-top: 1rem; background: #991b1b; color: white; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; cursor: pointer; font-weight: 500;">Back to Form</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Customer Detail Modal -->
+    <div class="modal-overlay hidden" id="customerModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Customer Details</h3>
+                <button class="modal-close" onclick="closeModal('customerModal')">&times;</button>
+            </div>
+            <div class="modal-body" id="customerModalBody">
+                <!-- Filled by JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('customerModal')">Close</button>
+                <button class="btn-primary" id="btnProvisionTeable" onclick="provisionTeable()">Provision Teable</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Configuration
+        var SUPABASE_URL = 'https://hoiyubwenbscyhawetyd.supabase.co';
+        var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvaXl1YndlbmJzY3loYXdldHlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcxMTA4NjAsImV4cCI6MjA4MjY4Njg2MH0.9WvCPqOZ1-sV3hJqcyaf-Aaj3Zot9SJ9hd2zyxHmSfY';
+        var API_BASE = 'https://teable-mcp-server-production.up.railway.app';
+
+        var supabaseClient = null;
+        var accessToken = null;
+        var currentCustomer = null;
+
+        function initSupabase() {
+            if (!supabaseClient) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+            return supabaseClient;
+        }
+
+        function showToast(message, type) {
+            var toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + (type || '');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function apiCall(endpoint, options) {
+            options = options || {};
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = 'Bearer ' + accessToken;
+            options.headers['Content-Type'] = 'application/json';
+
+            var response = await fetch(API_BASE + endpoint, options);
+            if (!response.ok) {
+                var error = await response.json();
+                throw new Error(error.details || error.error || 'API error');
+            }
+            return response.json();
+        }
+
+        // Check authentication
+        async function checkAuth() {
+            try {
+                var token = localStorage.getItem('adminToken');
+                if (!token) {
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                accessToken = token;
+
+                // Verify admin status
+                var adminData = await apiCall('/api/admin/me');
+                document.getElementById('adminInfo').textContent = adminData.name || adminData.email + ' (' + adminData.role + ')';
+
+                // Load data
+                loadStats();
+                loadCustomers();
+                loadPayments();
+                loadOrphaned();
+                loadLeads();
+
+            } catch (err) {
+                console.error('Auth error:', err);
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('adminUser');
+                window.location.href = 'admin-login.html';
+            }
+        }
+
+        async function handleLogout() {
+            localStorage.removeItem('adminToken');
+            localStorage.removeItem('adminUser');
+            window.location.href = 'admin-login.html';
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                var data = await apiCall('/api/admin/customers?limit=1000');
+                var customers = data.customers || [];
+
+                var total = customers.length;
+                var active = customers.filter(function(c) { return c.status === 'active'; }).length;
+                var pending = customers.filter(function(c) { return c.status === 'pending'; }).length;
+
+                document.getElementById('statTotal').textContent = total;
+                document.getElementById('statActive').textContent = active;
+                document.getElementById('statPending').textContent = pending;
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        // Load customers
+        async function loadCustomers() {
+            try {
+                var status = document.getElementById('statusFilter').value;
+                var search = document.getElementById('customerSearch').value;
+
+                var url = '/api/admin/customers?limit=100';
+                if (status) url += '&status=' + status;
+                if (search) url += '&search=' + encodeURIComponent(search);
+
+                var data = await apiCall(url);
+                renderCustomersTable(data.customers || []);
+            } catch (err) {
+                console.error('Failed to load customers:', err);
+                document.getElementById('customersTableContainer').innerHTML = '<div class="empty-state">Failed to load customers</div>';
+            }
+        }
+
+        function searchCustomers() {
+            clearTimeout(window.searchTimeout);
+            window.searchTimeout = setTimeout(loadCustomers, 300);
+        }
+
+        function renderCustomersTable(customers) {
+            if (!customers.length) {
+                document.getElementById('customersTableContainer').innerHTML = '<div class="empty-state">No customers found</div>';
+                return;
+            }
+
+            var html = '<table class="data-table"><thead><tr>';
+            html += '<th>Name</th><th>Email</th><th>Status</th><th>Tier</th><th>Created</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            customers.forEach(function(c) {
+                var statusClass = c.status === 'active' ? 'badge-active' : (c.status === 'pending' ? 'badge-pending' : 'badge-suspended');
+                var created = new Date(c.created_at).toLocaleDateString();
+
+                html += '<tr>';
+                html += '<td>' + escapeHtml(c.name) + '</td>';
+                html += '<td>' + escapeHtml(c.email) + '</td>';
+                html += '<td><span class="badge ' + statusClass + '">' + c.status + '</span></td>';
+                html += '<td>' + (c.tier || 'free') + '</td>';
+                html += '<td>' + created + '</td>';
+                html += '<td>';
+                html += '<button class="btn-action btn-view" onclick="viewCustomer(\'' + c.id + '\')">View</button> ';
+                if (c.status === 'pending') {
+                    html += '<button class="btn-action btn-provision" onclick="quickProvision(\'' + c.mcp_key + '\', \'' + escapeHtml(c.email) + '\')" style="background:#10b981;color:white;">Provision</button> ';
+                }
+                html += '<button class="btn-action btn-copy" onclick="copyMcpUrl(\'' + c.mcp_key + '\')">Copy MCP URL</button>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('customersTableContainer').innerHTML = html;
+        }
+
+        // Load payments
+        async function loadPayments() {
+            try {
+                var data = await apiCall('/api/admin/stripe/payments?limit=50');
+                renderPaymentsTable(data.payments || []);
+            } catch (err) {
+                console.error('Failed to load payments:', err);
+                document.getElementById('paymentsTableContainer').innerHTML = '<div class="empty-state">Failed to load payments</div>';
+            }
+        }
+
+        function renderPaymentsTable(payments) {
+            if (!payments.length) {
+                document.getElementById('paymentsTableContainer').innerHTML = '<div class="empty-state">No payments found</div>';
+                return;
+            }
+
+            var html = '<table class="data-table"><thead><tr>';
+            html += '<th>Email</th><th>Name</th><th>Amount</th><th>Status</th><th>Date</th><th>Session ID</th>';
+            html += '</tr></thead><tbody>';
+
+            payments.forEach(function(p) {
+                var amount = p.amount_total ? 'RM ' + (p.amount_total / 100).toFixed(2) : '-';
+                var date = new Date(p.created).toLocaleDateString();
+                var statusClass = p.payment_status === 'paid' ? 'badge-paid' : 'badge-pending';
+
+                html += '<tr>';
+                html += '<td>' + escapeHtml(p.customer_email || '-') + '</td>';
+                html += '<td>' + escapeHtml(p.customer_name || '-') + '</td>';
+                html += '<td>' + amount + '</td>';
+                html += '<td><span class="badge ' + statusClass + '">' + p.payment_status + '</span></td>';
+                html += '<td>' + date + '</td>';
+                html += '<td style="font-size: 0.8rem; font-family: monospace;">' + p.id.substring(0, 20) + '...</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('paymentsTableContainer').innerHTML = html;
+        }
+
+        // Load orphaned payments
+        async function loadOrphaned() {
+            try {
+                var data = await apiCall('/api/admin/stripe/orphaned');
+                var orphaned = data.orphaned || [];
+
+                document.getElementById('statOrphaned').textContent = orphaned.length;
+
+                if (orphaned.length > 0) {
+                    document.getElementById('orphanedAlert').classList.remove('hidden');
+                    document.getElementById('orphanedCount').textContent = orphaned.length;
+                } else {
+                    document.getElementById('orphanedAlert').classList.add('hidden');
+                }
+
+                renderOrphanedTable(orphaned);
+            } catch (err) {
+                console.error('Failed to load orphaned:', err);
+                document.getElementById('orphanedTableContainer').innerHTML = '<div class="empty-state">Failed to load orphaned payments</div>';
+            }
+        }
+
+        function renderOrphanedTable(orphaned) {
+            if (!orphaned.length) {
+                document.getElementById('orphanedTableContainer').innerHTML = '<div class="empty-state">No orphaned payments - all payments have customer accounts!</div>';
+                return;
+            }
+
+            var html = '<table class="data-table"><thead><tr>';
+            html += '<th>Email</th><th>Name</th><th>Amount</th><th>Date</th><th>Action</th>';
+            html += '</tr></thead><tbody>';
+
+            orphaned.forEach(function(p) {
+                var amount = p.amount_total ? 'RM ' + (p.amount_total / 100).toFixed(2) : '-';
+                var date = new Date(p.created).toLocaleDateString();
+
+                html += '<tr>';
+                html += '<td>' + escapeHtml(p.customer_email || '-') + '</td>';
+                html += '<td>' + escapeHtml(p.customer_name || '-') + '</td>';
+                html += '<td>' + amount + '</td>';
+                html += '<td>' + date + '</td>';
+                html += '<td><button class="btn-action btn-provision" onclick="provisionFromSession(\'' + p.id + '\')">Create Account</button></td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('orphanedTableContainer').innerHTML = html;
+        }
+
+        // Load leads
+        async function loadLeads() {
+            try {
+                var status = document.getElementById('leadStatusFilter').value;
+                var url = '/api/admin/leads?limit=100';
+                if (status) url += '&status=' + status;
+
+                var data = await apiCall(url);
+                renderLeadsTable(data.leads || []);
+
+                // Update new leads stat
+                var newCount = (data.leads || []).filter(function(l) { return l.status === 'new'; }).length;
+                document.getElementById('statNewLeads').textContent = newCount;
+            } catch (err) {
+                console.error('Failed to load leads:', err);
+                document.getElementById('leadsTableContainer').innerHTML = '<div class="empty-state">Failed to load leads</div>';
+            }
+        }
+
+        function renderLeadsTable(leads) {
+            if (!leads.length) {
+                document.getElementById('leadsTableContainer').innerHTML = '<div class="empty-state">No leads found</div>';
+                return;
+            }
+
+            var html = '<table class="data-table"><thead><tr>';
+            html += '<th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Created</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            leads.forEach(function(l) {
+                var statusClass = 'badge-' + l.status.replace('_', '-');
+                var created = new Date(l.created_at).toLocaleDateString() + ' ' + new Date(l.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                var whatsappLink = 'https://wa.me/' + l.phone.replace(/[^0-9]/g, '');
+
+                html += '<tr>';
+                html += '<td>' + escapeHtml(l.name) + '</td>';
+                html += '<td><a href="' + whatsappLink + '" target="_blank" style="color: #25d366;">' + escapeHtml(l.phone) + '</a></td>';
+                html += '<td>' + escapeHtml(l.source || '-') + '</td>';
+                html += '<td><span class="badge ' + statusClass + '">' + l.status.replace('_', ' ') + '</span></td>';
+                html += '<td>' + created + '</td>';
+                html += '<td>';
+                html += '<select onchange="updateLeadStatus(\'' + l.id + '\', this.value)" style="padding: 0.3rem; border-radius: 4px; border: 1px solid #e5e7eb;">';
+                html += '<option value="">Change Status</option>';
+                html += '<option value="new"' + (l.status === 'new' ? ' selected' : '') + '>New</option>';
+                html += '<option value="contacted"' + (l.status === 'contacted' ? ' selected' : '') + '>Contacted</option>';
+                html += '<option value="converted"' + (l.status === 'converted' ? ' selected' : '') + '>Converted</option>';
+                html += '<option value="not_interested"' + (l.status === 'not_interested' ? ' selected' : '') + '>Not Interested</option>';
+                html += '</select>';
+                html += '</td>';
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('leadsTableContainer').innerHTML = html;
+        }
+
+        // Update lead status
+        async function updateLeadStatus(leadId, status) {
+            if (!status) return;
+
+            try {
+                await apiCall('/api/admin/leads/' + leadId, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ status: status })
+                });
+                showToast('Lead status updated', 'success');
+                loadLeads();
+            } catch (err) {
+                showToast('Failed to update: ' + err.message, 'error');
+            }
+        }
+
+        // Provision customer from orphaned session
+        async function provisionFromSession(sessionId) {
+            if (!confirm('Create customer account for this payment?')) return;
+
+            try {
+                showToast('Creating customer account...', '');
+                var result = await apiCall('/api/admin/stripe/provision', {
+                    method: 'POST',
+                    body: JSON.stringify({ sessionId: sessionId })
+                });
+
+                showToast('Customer created: ' + result.customer.email, 'success');
+
+                // Reload data
+                loadStats();
+                loadCustomers();
+                loadOrphaned();
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+        }
+
+        // View customer details
+        async function viewCustomer(id) {
+            try {
+                var customer = await apiCall('/api/admin/customers/' + id);
+                currentCustomer = customer;
+
+                var html = '';
+                html += '<div class="detail-row"><span class="detail-label">Name</span><span class="detail-value">' + escapeHtml(customer.name) + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">' + escapeHtml(customer.email) + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">' + customer.status + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">Tier</span><span class="detail-value">' + (customer.tier || 'free') + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">Record Limit</span><span class="detail-value">' + (customer.record_limit || 50000).toLocaleString() + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">Onboarding</span><span class="detail-value">' + (customer.onboarding_complete ? 'Complete' : 'Pending') + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">MCP Key</span><span class="detail-value" style="font-family: monospace; font-size: 0.85rem;">' + customer.mcp_key + '</span></div>';
+                html += '<div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">' + new Date(customer.created_at).toLocaleString() + '</span></div>';
+
+                document.getElementById('customerModalBody').innerHTML = html;
+                document.getElementById('customerModal').classList.remove('hidden');
+
+                // Show/hide provision button based on status
+                document.getElementById('btnProvisionTeable').style.display = customer.onboarding_complete ? 'none' : 'inline-block';
+
+            } catch (err) {
+                showToast('Failed to load customer: ' + err.message, 'error');
+            }
+        }
+
+        // Provision Teable for current customer
+        async function provisionTeable() {
+            if (!currentCustomer) return;
+            if (!confirm('Provision Teable account for ' + currentCustomer.email + '?')) return;
+
+            try {
+                showToast('Provisioning Teable account...', '');
+                var result = await apiCall('/api/admin/provision-teable/' + currentCustomer.mcp_key, {
+                    method: 'POST'
+                });
+
+                // Show credentials in a popup
+                if (result.success && result.password) {
+                    var credentialsMsg = '✅ Account Provisioned!\n\n';
+                    credentialsMsg += '📧 Email: ' + result.email + '\n';
+                    credentialsMsg += '🔑 Password: ' + result.password + '\n';
+                    credentialsMsg += '🌐 Teable URL: ' + result.teableUrl + '\n\n';
+                    credentialsMsg += '⚠️ SAVE THIS PASSWORD - shown only once!';
+                    alert(credentialsMsg);
+                } else {
+                    showToast('Teable account provisioned!', 'success');
+                }
+
+                closeModal('customerModal');
+                loadCustomers();
+                loadStats();
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+        }
+
+        // Quick provision from table (for pending accounts)
+        async function quickProvision(mcpKey, email) {
+            if (!confirm('Provision Teable account for ' + email + '?')) return;
+
+            try {
+                showToast('Provisioning Teable account...', '');
+                var result = await apiCall('/api/admin/provision-teable/' + mcpKey, {
+                    method: 'POST'
+                });
+
+                // Show credentials in a popup
+                if (result.success && result.password) {
+                    var credentialsMsg = '✅ Account Provisioned!\n\n';
+                    credentialsMsg += '📧 Email: ' + result.email + '\n';
+                    credentialsMsg += '🔑 Password: ' + result.password + '\n';
+                    credentialsMsg += '🌐 Teable URL: ' + result.teableUrl + '\n\n';
+                    credentialsMsg += '⚠️ SAVE THIS PASSWORD - shown only once!';
+                    alert(credentialsMsg);
+                } else {
+                    showToast('Teable account provisioned!', 'success');
+                }
+
+                loadCustomers();
+                loadStats();
+            } catch (err) {
+                showToast('Failed: ' + err.message, 'error');
+            }
+        }
+
+        // Copy MCP URL
+        function copyMcpUrl(mcpKey) {
+            var url = API_BASE + '/mcp/' + mcpKey + '/sse';
+            navigator.clipboard.writeText(url).then(function() {
+                showToast('MCP URL copied to clipboard!', 'success');
+            });
+        }
+
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-content').forEach(function(content) {
+                content.classList.remove('active');
+            });
+
+            document.querySelector('.tab-btn[onclick="showTab(\'' + tabName + '\')"]').classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
+
+        // Close modal
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            var div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // ============ CREATE ACCOUNT (Two-Step Flow with Provisioning UI) ============
+
+        // Store current customer for retry
+        var pendingCustomer = null;
+        var pendingEmail = null;
+        var pendingName = null;
+        var pendingTier = null;
+
+        // Helper to show/hide states
+        function showCreateState(state) {
+            document.getElementById('createFormState').style.display = state === 'form' ? 'block' : 'none';
+            document.getElementById('createProvisioningState').style.display = state === 'provisioning' ? 'block' : 'none';
+            document.getElementById('createResultBox').style.display = state === 'success' ? 'block' : 'none';
+            document.getElementById('createErrorBox').style.display = state === 'error' ? 'block' : 'none';
+        }
+
+        // Helper to update provisioning step UI
+        function updateAdminProvStep(stepNum, status) {
+            var step = document.getElementById('adminProvStep' + stepNum);
+            step.className = 'prov-step ' + status;
+
+            var icon = step.querySelector('.icon');
+            if (status === 'done') {
+                icon.innerHTML = '&#10003;';
+            } else if (status === 'error') {
+                icon.innerHTML = '!';
+            } else {
+                icon.innerHTML = stepNum;
+            }
+        }
+
+        // Reset all provisioning steps to pending
+        function resetProvSteps() {
+            for (var i = 1; i <= 4; i++) {
+                var step = document.getElementById('adminProvStep' + i);
+                step.className = 'prov-step pending';
+                step.querySelector('.icon').innerHTML = i;
+            }
+            document.getElementById('provisioningErrorBox').style.display = 'none';
+        }
+
+        // Delay helper
+        function delay(ms) {
+            return new Promise(function(resolve) { setTimeout(resolve, ms); });
+        }
+
+        // Main create account function (two-step flow like payment-success.html)
+        async function createAccount() {
+            var name = document.getElementById('createName').value.trim();
+            var email = document.getElementById('createEmail').value.trim();
+            var tier = document.getElementById('createTier').value;
+
+            if (!name || !email) {
+                showToast('Please enter both name and email', 'error');
+                return;
+            }
+
+            // Store for retry
+            pendingEmail = email;
+            pendingName = name;
+            pendingTier = tier;
+
+            // Show provisioning UI
+            resetProvSteps();
+            document.getElementById('provisioningEmail').textContent = 'Setting up account for ' + email + '...';
+            showCreateState('provisioning');
+
+            try {
+                // Step 1: Create customer record
+                updateAdminProvStep(1, 'active');
+
+                var result = await apiCall('/api/admin/create-account', {
+                    method: 'POST',
+                    body: JSON.stringify({ name: name, email: email, tier: tier })
+                });
+
+                // Check if we got a customer (even if provisioning failed)
+                if (result.customer) {
+                    pendingCustomer = result.customer;
+                    updateAdminProvStep(1, 'done');
+                    await delay(500);
+
+                    if (result.success && result.credentials) {
+                        // Full success - provisioning also worked
+                        updateAdminProvStep(2, 'active');
+                        await delay(400);
+                        updateAdminProvStep(2, 'done');
+
+                        updateAdminProvStep(3, 'active');
+                        await delay(400);
+                        updateAdminProvStep(3, 'done');
+
+                        updateAdminProvStep(4, 'active');
+                        await delay(400);
+                        updateAdminProvStep(4, 'done');
+
+                        await delay(500);
+
+                        // Show success
+                        document.getElementById('resultTeableUrl').textContent = result.credentials.teable_url;
+                        document.getElementById('resultEmail').textContent = result.credentials.email;
+                        document.getElementById('resultPassword').textContent = result.credentials.password;
+                        document.getElementById('resultTier').textContent = result.customer.tier.toUpperCase();
+                        document.getElementById('resultDashboardUrl').value = result.dashboard_url;
+
+                        showCreateState('success');
+                        showToast('Account created successfully!', 'success');
+
+                        // Clear form values
+                        document.getElementById('createName').value = '';
+                        document.getElementById('createEmail').value = '';
+                        document.getElementById('createTier').value = 'free';
+
+                        // Reload data
+                        loadCustomers();
+                        loadStats();
+
+                    } else {
+                        // Customer created but provisioning failed - show error with retry
+                        updateAdminProvStep(2, 'active');
+                        await delay(1000);
+                        updateAdminProvStep(2, 'error');
+
+                        var errorMsg = result.error || result.provisionError || 'Teable account creation failed';
+                        document.getElementById('provisioningErrorMessage').textContent = errorMsg + '. Click retry to try again.';
+                        document.getElementById('provisioningErrorBox').style.display = 'block';
+
+                        showToast('Customer created, but Teable provisioning failed. You can retry.', 'error');
+                    }
+                } else {
+                    throw new Error(result.error || 'Failed to create customer record');
+                }
+
+            } catch (err) {
+                // Check for auth errors - redirect to login
+                if (err.message.includes('Invalid token') || err.message.includes('No token') || err.message.includes('Token expired')) {
+                    showToast('Session expired. Redirecting to login...', 'error');
+                    localStorage.removeItem('adminToken');
+                    await delay(1500);
+                    window.location.href = 'admin-login.html';
+                    return;
+                }
+
+                // Complete failure - show form with error
+                updateAdminProvStep(1, 'error');
+                await delay(500);
+
+                document.getElementById('createErrorMessage').textContent = err.message;
+                showCreateState('error');
+                showToast('Failed: ' + err.message, 'error');
+            }
+        }
+
+        // Retry provisioning for failed customer
+        async function retryProvisioning() {
+            if (!pendingCustomer) {
+                showToast('No pending customer to retry', 'error');
+                return;
+            }
+
+            // Reset steps 2-4 and start retry
+            updateAdminProvStep(2, 'active');
+            document.getElementById('provisioningErrorBox').style.display = 'none';
+
+            try {
+                // Call provision-teable endpoint directly (same as payment-success.html does)
+                var provResponse = await fetch(API_BASE + '/api/provision-teable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mcpKey: pendingCustomer.mcp_key,
+                        email: pendingEmail,
+                        name: pendingName
+                    })
+                });
+
+                if (!provResponse.ok) {
+                    var err = await provResponse.json();
+                    throw new Error(err.error || 'Provisioning failed');
+                }
+
+                var provData = await provResponse.json();
+
+                // Success animation
+                updateAdminProvStep(2, 'done');
+                await delay(400);
+
+                updateAdminProvStep(3, 'active');
+                await delay(400);
+                updateAdminProvStep(3, 'done');
+
+                updateAdminProvStep(4, 'active');
+                await delay(400);
+                updateAdminProvStep(4, 'done');
+
+                await delay(500);
+
+                // Show success
+                document.getElementById('resultTeableUrl').textContent = provData.teable_url || 'https://table.resultmarketing.asia';
+                document.getElementById('resultEmail').textContent = provData.email || pendingEmail;
+                document.getElementById('resultPassword').textContent = provData.password || '(check email)';
+                document.getElementById('resultTier').textContent = (pendingCustomer.tier || pendingTier || 'free').toUpperCase();
+                document.getElementById('resultDashboardUrl').value = provData.dashboard_url || '';
+
+                showCreateState('success');
+                showToast('Account provisioned successfully!', 'success');
+
+                // Clear form and pending data
+                document.getElementById('createName').value = '';
+                document.getElementById('createEmail').value = '';
+                document.getElementById('createTier').value = 'free';
+                pendingCustomer = null;
+
+                // Reload data
+                loadCustomers();
+                loadStats();
+
+            } catch (err) {
+                updateAdminProvStep(2, 'error');
+                document.getElementById('provisioningErrorMessage').textContent = err.message + '. Click retry to try again.';
+                document.getElementById('provisioningErrorBox').style.display = 'block';
+                showToast('Retry failed: ' + err.message, 'error');
+            }
+        }
+
+        // Reset form to create another account
+        function resetCreateForm() {
+            pendingCustomer = null;
+            pendingEmail = null;
+            pendingName = null;
+            pendingTier = null;
+            resetProvSteps();
+            showCreateState('form');
+        }
+
+        // Copy dashboard URL
+        function copyDashboardUrl() {
+            var url = document.getElementById('resultDashboardUrl').value;
+            navigator.clipboard.writeText(url).then(function() {
+                showToast('Dashboard link copied!', 'success');
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', checkAuth);
+    </script>
+</body>
+</html>

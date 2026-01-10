@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <title>Checkout - Teable AI Connector</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f6f9fc;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .checkout-container {
+            display: flex;
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .product-section {
+            flex: 1;
+            padding: 3rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+
+        .product-section h1 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .product-name {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-description {
+            opacity: 0.9;
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .price-box {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .price {
+            font-size: 3rem;
+            font-weight: 700;
+        }
+
+        .price-period {
+            font-size: 1rem;
+            opacity: 0.8;
+        }
+
+        .features {
+            list-style: none;
+        }
+
+        .features li {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .features li::before {
+            content: "✓";
+            background: rgba(255,255,255,0.2);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .payment-section {
+            flex: 1;
+            padding: 3rem;
+        }
+
+        .payment-section h2 {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #10b981;
+        }
+
+        .card-row {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .card-row .form-group {
+            flex: 1;
+        }
+
+        .fake-card {
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+
+        .fake-card p {
+            font-size: 0.85rem;
+        }
+
+        .btn-pay {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-pay:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-pay:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .secure-note {
+            text-align: center;
+            margin-top: 1.5rem;
+            color: #666;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            .checkout-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div style="width: 100%; max-width: 900px;">
+        <div class="checkout-container">
+            <div class="product-section">
+                <h1>Result Marketing</h1>
+                <div class="product-name">Teable AI Connector</div>
+                <p class="product-description">
+                    Connect your Teable database to Claude AI. Query, create, and manage your data using natural language.
+                </p>
+
+                <div class="price-box">
+                    <div class="price">RM299</div>
+                    <div class="price-period">per year</div>
+                </div>
+
+                <ul class="features">
+                    <li>Teable + Airtable connectors included</li>
+                    <li>5,000 records FREE on hosted Teable</li>
+                    <li>Unlimited AI queries</li>
+                    <li>Secure encrypted connection</li>
+                    <li>Works with Claude Desktop</li>
+                </ul>
+            </div>
+
+            <div class="payment-section">
+                <h2>Complete your purchase</h2>
+
+                <div class="form-group">
+                    <label>Full Name</label>
+                    <input type="text" id="name" placeholder="Ahmad Ibrahim" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="ahmad@company.com" required>
+                </div>
+
+                <button class="btn-pay" id="payBtn" onclick="processPayment()">
+                    Continue to Payment - RM299
+                </button>
+
+                <p class="secure-note">
+                    🔒 Secure payment powered by Stripe
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://teable-mcp-server-production.up.railway.app';
+
+        async function processPayment() {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+
+            if (!name || !email) {
+                alert('Please fill in your name and email');
+                return;
+            }
+
+            // Validate email format
+            if (!email.includes('@')) {
+                alert('Please enter a valid email address');
+                return;
+            }
+
+            const btn = document.getElementById('payBtn');
+            btn.textContent = 'Redirecting to Stripe...';
+            btn.disabled = true;
+
+            try {
+                // Create Stripe checkout session
+                const response = await fetch(`${API_BASE}/api/checkout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to create checkout session');
+                }
+
+                // Redirect to Stripe Checkout
+                window.location.href = data.url;
+
+            } catch (error) {
+                alert('Error: ' + error.message);
+                btn.textContent = 'Continue to Payment - RM299';
+                btn.disabled = false;
+            }
+        }
+
+        // Check if cancelled from Stripe
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('cancelled') === '1') {
+            alert('Payment was cancelled. Please try again.');
+        }
+    </script>
+</body>
+</html>
